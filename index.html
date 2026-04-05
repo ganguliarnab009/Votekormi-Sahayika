@@ -1,0 +1,740 @@
+import React, { useState, useEffect } from 'react';
+
+// --- DATA MODELS & CONSTANTS ---
+
+const STAGES = [
+  { id: 'dc', title: '১. ডিসি (Distribution Centre)', short: 'ডিসি' },
+  { id: 'setup', title: '২. বুথ সেটআপ (P-1 দিন)', short: 'সেটআপ' },
+  { id: 'mock', title: '৩. মক পোল (সকাল ৫:৩০)', short: 'মক পোল' },
+  { id: 'live', title: '৪. ভোটগ্রহণ পর্ব', short: 'ভোটগ্রহণ' },
+  { id: 'closing', title: '৫. ভোট সমাপ্তি (Closing)', short: 'সমাপ্তি' },
+  { id: 'rc', title: '৬. RC-তে জমা (RC Submit)', short: 'RC জমা' }
+];
+
+// --- CHECKLIST DATA WITH MISTAKES AND TIPS ---
+const CHECKLIST_DATA = {
+  dc: [
+    { id: 'dc_1', role: 'all', text: 'প্রাথমিক কাজ: Decoding List চেক করে নিজের Polling Station (PS) নম্বর ও নির্দিষ্ট Counter খুঁজে বের করা।' },
+    { id: 'dc_2', role: 'all', text: 'উপস্থিতি (Attendance): টিমের ৪ জন (PrO, P1, P2, P3) একসাথে রিপোর্ট করে Attendance দেওয়া।' },
+    { id: 'dc_3', role: 'pro', text: 'SMS ও SO Contact: PrO ও P1-এর মোবাইল থেকে Registration SMS পাঠানো এবং Sector Officer-এর নম্বর Save করা।' },
+    { id: 'dc_4', role: 'all', text: 'Postal Ballot / EDC: আগে আবেদন করা থাকলে Postal Ballot ভোট দেওয়া বা Election Duty Certificate (EDC) সংগ্রহ করা।' },
+    { id: 'dc_5', role: 'pro', text: 'EVM/VVPAT ট্যাগ: CU, BU ও VVPAT আপনার PS-এর জন্যই কিনা Address Tag দেখে মিলিয়ে নেওয়া। তিনটি ইউনিটের Address Tag অক্ষত কিনা চেক করা।' },
+    { id: 'dc_6', role: 'pro', text: 'CU চেক: Candidate Set Section-এর সিল এবং Pink Paper Seal অক্ষত (intact) আছে কিনা দেখা। Power Switch ON করে Battery ও Date/Time চেক করে সঙ্গে সঙ্গে OFF করা।', critical: true, mistake: 'মেশিন ON অবস্থায় রেখে দেওয়া বা তার লাগানো।', tip: 'কেবলমাত্র ব্যাটারি পার্সেন্টেজ দেখেই মেশিন বন্ধ করে দিন।' },
+    { id: 'dc_7', role: 'pro', text: 'BU চেক: Form 7A অনুযায়ী Candidate সংখ্যা ও Thumbwheel switch-এর পজিশন সঠিক আছে কিনা দেখা।' },
+    { id: 'dc_8', role: 'pro', text: 'VVPAT চেক: Paper Roll Lock ঠিক আছে কিনা দেখা। অত্যন্ত গুরুত্বপূর্ণ: ডিসি-তে কোনো অবস্থাতেই VVPAT টেস্ট (Test) করবেন না।', critical: true, mistake: 'DC-তে VVPAT চেক করার চেষ্টা করা বা তার কানেক্ট করা (সম্পূর্ণ নিষিদ্ধ)।' },
+    { id: 'dc_9', role: 'p1', text: 'Electoral Roll: ১টি Marked Copy + ৩টি Working Copy বুঝে নেওয়া। Marked Copy-তে Annexure-4 সার্টিফিকেট আছে কিনা এবং Deletion সঠিকভাবে মার্ক করা আছে কিনা চেক করা।' },
+    { id: 'dc_10', role: 'p2', text: 'Form 17A: Register of Voters বুঝে নেওয়া ও প্রতিটি পেজের সিরিয়াল নম্বর ঠিক আছে কিনা চেক করা।' },
+    { id: 'dc_11', role: 'p3', text: 'Tender Ballot: ২০টি ব্যালট সিরিয়াল নম্বর মিলিয়ে নেওয়া। সাথে Voter Slips, Queue Slips, Braille Ballot (যদি থাকে) বুঝে নেওয়া।' },
+    { id: 'dc_12', role: 'p1', text: 'ASD List: ASD, Shifted, Dead (CSV) List এবং Proxy Voter list আলাদা করে রাখা।' },
+    { id: 'dc_13', role: 'pro', text: 'Troubleshooting ও Signature: Agent-দের Specimen Signature-এর ফটোকপি এবং EVM Troubleshooting instruction (Annexure-21) এর ২ কপি নেওয়া।' },
+    { id: 'dc_14', role: 'pro', text: 'Seals ও কালি: Green Paper Seal, Pink Paper Seal, Special Address Tag, Indelible Ink (২টি বোতল + ব্রাশ), Arrow Cross Stamp, PrO Metal Seal, Mock Poll Stamp বুঝে নেওয়া।' },
+    { id: 'dc_15', role: 'all', text: 'Stationary ও ফর্ম: Statutory ও Non-statutory forms, 17C, PrO Diary, Cello Tape (Transparent), Black Envelope (Mock Poll-এর জন্য) চেক করা।' },
+    { id: 'dc_16', role: 'p3', text: 'Voting Compartment: কার্ডবোর্ড ও বাঁধার জন্য সুতো মিলিয়ে নেওয়া।' },
+    { id: 'dc_17', role: 'pro', text: 'DC-তে বসেই সমস্ত Seal-এ (17A বাদে) Distinguishing Mark ও PrO-এর সই করে রাখুন। PrO Diary-তে মেটেরিয়াল সংগ্রহের সময় লিখে রাখুন।' },
+    { id: 'dc_18', role: 'all', text: 'রওনা দেওয়া: মেটেরিয়াল Annexure-3 অনুযায়ী মেলানোর পর গাড়ি লোড করা, লাঞ্চ প্যাক নেওয়া। বুথে পৌঁছে প্রথম কাজ "Safe Arrival" SMS পাঠানো।' }
+  ],
+  setup: [
+    { id: 'set_1', role: 'all', text: 'পৌঁছানো ও SMS: পোল-এর আগের দিন (P-1) বুথে পৌঁছে "Safe Arrival" SMS (WB EL <AC> P <Stn>) পাঠানো।' },
+    { id: 'set_2', role: 'pro', text: 'EVM/VVPAT বক্স খুলবেন কুলবেন না: কোনো অবস্থাতেই আজকে EVM/VVPAT বক্স খুলবেন না (শুধু পরের দিন মক পোলের সময় খুলবেন)।', critical: true, mistake: 'P-1 দিনেই EVM বা VVPAT বক্স খুলে ফেলা।' },
+    { id: 'set_3', role: 'all', text: 'পরিকাঠামো ও সিসিটিভি: বিদ্যুৎ, জল, শৌচাগার চেক করা এবং CCTV/Webcam থাকলে তা চালু করে SMS পাঠানো ও স্ট্যাটাস চেক করা।' },
+    { id: 'set_4', role: 'pro', text: 'যোগাযোগ ও সতর্কতা: CAPF/পুলিশ ও রান্নার লোকের সাথে সমন্বয় করা। স্থানীয় লোকের থেকে কোনো খাবার বা সুবিধা গ্রহণ না করা।' },
+    { id: 'set_5', role: 'pro', text: 'Voting Compartment: গোপনীয়তা পুরোপুরি নিশ্চিত করা, জানালা/দরজার পাশে না রাখা। ঠিক উপরে বা সামনে হাই ওয়াটেজ বাল্ব (High wattage bulb) না রাখা।' },
+    { id: 'set_6', role: 'p3', text: 'পোস্টার লাগানো: Form 7A, Notice 49-O, এরিয়া লিমিটেশন এবং "How to Cast Vote" নোটিশ বুথের বাইরে ও ভিতরে লাগানো।' },
+    { id: 'set_7', role: 'pro', text: 'বুথ সাজানো: অফিসার ও এজেন্টদের বসার জায়গা ঠিক করা, পুরুষ/মহিলাদের আলাদা লাইন এবং "ধূমপান নিষেধ" নোটিশ লাগানো।' },
+    { id: 'set_8', role: 'p3', text: 'মেশিন প্লেসমেন্ট ও কেবল: মেশিন নির্দিষ্ট জায়গায় রাখা (কানেক্ট না করে) এবং Transparent Cello Tape দিয়ে তারগুলো টেবিলের পায়ায় আটকানোর প্রস্তুতি নেওয়া।' },
+    { id: 'set_9', role: 'pro', text: 'ডকুমেন্টেশন: Form 17A বাদে সমস্ত ফর্ম, এনভেলপ ও স্লিপে Distinguishing Mark এবং PrO সই করে রাখা।' },
+    { id: 'set_10', role: 'p1', text: 'P1 ডিউটি: ভোটার লিস্টের Marked Copy ভালো করে চেক করা এবং ASD লিস্ট পড়ে নেওয়া।' },
+    { id: 'set_11', role: 'p2', text: 'P2 ডিউটি: Form 17A Register-এর উপর PS ও AC নম্বর লেখা, ভোটার স্লিপ আলাদা করা এবং Indelible Ink চেক করা।' },
+    { id: 'set_12', role: 'pro', text: 'এজেন্ট চেকিং: পোলিং এজেন্টদের Entry Pass ও Appointment Letter চেক করা এবং Specimen Signature sheet রেডি রাখা।' }
+  ],
+  mock: [
+    { id: 'mock_1', role: 'pro', text: 'শুরুর সময়: সকাল ৫:৩০ মিনিটে শুরু করা (পোলিং এজেন্ট না থাকলে সর্বোচ্চ ১৫ মিনিট অপেক্ষা করে শুরু করা)।' },
+    { id: 'mock_2', role: 'pro', text: 'ক্লিয়ার প্রদর্শন: এজেন্টদের সামনে CU-তে "Clear" বোতাম টিপে দেখানো যে সব প্রার্থীর ভোট ০ (Zero) আছে।' },
+    { id: 'mock_3', role: 'all', text: 'VVPAT ড্রপ বক্স: এজেন্টদের VVPAT-এর ড্রপ বক্স খুলে দেখানো যে সেটি সম্পূর্ণ ফাঁকা।', tip: 'এজেন্টদের দেখিয়ে নেওয়ার পর তবেই কানেকশন শুরু করুন।' },
+    { id: 'mock_4', role: 'pro', text: 'মেশিন নম্বর: CU, BU ও VVPAT-এর সিরিয়াল নম্বর এজেন্টদের দেখানো এবং PrO Diary-তে নোট করা।' },
+    { id: 'mock_5', role: 'pro', text: 'VVPAT আনলক: পিছনের কালো নব (Knob) Horizontal (Transport Mode) থেকে ঘুরিয়ে Vertical (Working Mode) করা।', critical: true },
+    { id: 'mock_6', role: 'pro', text: 'EVM কানেকশন: CU OFF রেখে BU → VVPAT → CU কানেক্ট করা। তারপর CU ON করলে VVPAT থেকে ৭টি Test Slip বের হবে।', critical: true, mistake: 'CU ON থাকা অবস্থায় তার কানেক্ট করা।' },
+    { id: 'mock_7', role: 'p3', text: 'মক ভোটদান: অন্তত ৫০টি মক ভোট দেওয়া (প্রতিটি Candidate ও NOTA-তে অন্তত ১টি করে ভোট পড়া বাধ্যতামূলক)।' },
+    { id: 'mock_8', role: 'p1', text: 'ম্যানুয়াল রেকর্ড: মক ভোটের সময় Tally Sheet-এ ম্যানুয়াল রেকর্ড রাখা এবং VVPAT স্লিপের সাথে CU Result মেলানো।' },
+    { id: 'mock_9', role: 'pro', text: 'CRC (Close-Result-Clear): Close বোতাম টেপা → Result টিপে রেজাল্ট মেলানো → Clear বোতাম টেপা এবং নিশ্চিত করা যে TOTAL = 0।', critical: true, mistake: 'মক পোল শেষে Clear বোতাম না টিপেই সীল করে দেওয়া (এতে মক ভোট আসল ভোটে যোগ হয়ে যাবে)।' },
+    { id: 'mock_10', role: 'all', text: 'সার্টিফিকেট: Mock Poll Certificate (PrO Report Part-I, Annexure-5) পূরণ করে এজেন্টদের সই নেওয়া।' },
+    { id: 'mock_11', role: 'pro', text: 'সিলিং ১ (স্লিপ): সব VVPAT স্লিপের পিছনে "Mock Poll Slip" স্ট্যাম্প মেরে Black Envelope-এ ভরা এবং Pink Paper Seal ও গালা দিয়ে সিল করা।' },
+    { id: 'mock_12', role: 'pro', text: 'সিলিং ২ (CU): CU Switch OFF করে Green Paper Seal, Special Tag ও Address Tag দিয়ে সিল করা।' },
+    { id: 'mock_13', role: 'pro', text: 'সিলিং ৩ (VVPAT): VVPAT-এর Drop Box (Slip Compartment) ২টি Address Tag ও গালা দিয়ে সিল করা।' }
+  ],
+  live: [
+    { id: 'live_1', role: 'pro', text: 'জিরো চেক (Zero Check): ভোট শুরুর আগে CU-তে "Total" বাটন টিপে এজেন্টদের দেখান যে ভোট ০ (Zero) আছে।', critical: true },
+    { id: 'live_2', role: 'p1', text: 'জিরো সার্টিফিকেট: প্রথম ভোটারের সইয়ের আগে PrO ও P1 মিলে Form 17A-তে লিখুন "Total in the Control Unit is checked and found to be Zero" এবং সই করুন।', critical: true, mistake: 'ভোটগ্রহণ শুরু হয়ে যাওয়ার পর বা মাঝে এই কথাটি লেখা।' },
+    { id: 'live_3', role: 'pro', text: 'গোপনীয়তা ও ঘোষণা: এজেন্টদের RP Act-এর Section 128 (গোপনীয়তা) পড়ে শোনান। Declaration of Poll জোরে পড়ে এজেন্টদের সই নিন (Annexure-6)।' },
+    { id: 'live_4', role: 'pro', text: 'ভোট শুরু: ঠিক সকাল ৭:০০ টায় ভোট শুরু করুন এবং ভোট শুরুর SMS পাঠান।' },
+    { id: 'live_5', role: 'p1', text: 'P1 ডিউটি: EPIC/ID যাচাই করুন। Marked Copy-তে লাল কালিতে Male=Slant Line, Female=Circle+Slant Line, Third Gender=Star মার্ক করুন। ভোটারের নাম ও সিরিয়াল জোরে পড়ুন।', mistake: 'ASD লিস্ট চেক না করে ভোট দেওয়া বা নাম জোরে না পড়া।' },
+    { id: 'live_6', role: 'p2', text: 'P2 ডিউটি: বাঁ হাতের তর্জনী চেক করে কালি লাগান। কালি শুকানোর জন্য অপেক্ষা করুন। 17A-তে এন্ট্রি (সিরিয়াল, ID-র শেষ ৪ সংখ্যা, সই/টিপসই) নিন। Voter Slip ইস্যু করুন।', mistake: 'ভুল আঙুলে কালি লাগানো বা ভোটারের সই/টিপসই না নেওয়া।', tip: 'কালি লাগানোর পর ৫ সেকেন্ড শুকাতে দিন।' },
+    { id: 'live_7', role: 'p3', text: 'P3 ডিউটি: Voter Slip নিয়ে শুতোয় গাঁথুন, আঙুলে কালি চেক করুন, CU-তে "Ballot" বাটন টিপুন এবং "Busy" ল্যাম্প ও প্রতি ভোটে "Beep" শব্দ মনিটর করুন।' },
+    { id: 'live_8', role: 'all', text: 'VVPAT মনিটরিং: ভোটার Voting Compartment-এ গিয়ে বোতাম চাপলে VVPAT-এ ৭ সেকেন্ড স্লিপ দেখা যাচ্ছে কিনা তা সর্বদা লক্ষ্য রাখুন।' },
+    { id: 'live_9', role: 'pro', text: 'রিপোর্টিং ও ট্যালি: সকাল ৯, ১১, ১, ৩ ও ৫টায় Cumulative ভোটের SMS (SO-এর মাধ্যমে RO-কে) পাঠান। প্রতি ঘণ্টায় 17A-এর সিরিয়ালের সাথে CU-এর Total মেলান।' },
+    { id: 'live_10', role: 'pro', text: 'PrO Diary: PrO Diary-তে প্রতি ঘণ্টায় বা ঘটনা অনুযায়ী (Events/Complaints) এন্ট্রি করুন।' },
+    { id: 'live_11', role: 'pro', text: 'বিশেষ পরিস্থিতি: 49-O (ভোট দানে অস্বীকৃতি), Proxy, Challenged বা Test Vote (49MA)-এর ক্ষেত্রে সঠিক নিয়ম মানুন। সন্দেহ হলে ১-২ জন এজেন্টকে নিয়ে PrO ভোটিং কম্পার্টমেন্ট চেক করতে পারেন।' },
+    { id: 'live_12', role: 'pro', text: 'সতর্কতা: ভোট চলাকালীন কোনো অবস্থাতেই মেশিন OFF বা কেবল খোলা যাবে না। কেবল ত্রুটি হলে SO-কে জানাতে হবে।', critical: true, mistake: 'ভোট চলাকালীন মেশিন OFF করে দেওয়া বা কেবল খোলা।' }
+  ],
+  closing: [
+    { id: 'clos_1', role: 'pro', text: 'ঘোষণা: ভোট শেষের ১৫ মিনিট আগে (বিকেল ৫:৪৫) জোরে ঘোষণা করুন যে পোল ক্লোজিং-এর সময় আসছে।' },
+    { id: 'clos_2', role: 'pro', text: 'কিউ স্লিপ (Queue Slip): ঠিক ৬টায় লাইনের একেবারে শেষ ভোটারকে "১ নম্বর" Queue Slip (PrO সই সহ) দিন এবং ক্রমান্বয়ে সামনের দিকে বিলি করুন। ৬টার পর কাউকে লাইনে দাঁড়াতে দেবেন না।' },
+    { id: 'clos_3', role: 'pro', text: 'ক্লোজ বাটন (Close Button): শেষ ভোটারের ভোটদান সম্পূর্ণ হলে CU-এর Safety Cover সরিয়ে CLOSE বোতাম টিপুন এবং "Poll Closed" লেখা পর্যন্ত অপেক্ষা করুন।', critical: true, mistake: 'লাইনে লোক থাকা অবস্থাতেই ভুল করে Close বোতাম টিপে দেওয়া।' },
+    { id: 'clos_4', role: 'p2', text: '17A সমাপ্তি: Form 17A-র শেষ এন্ট্রির নিচে লাল কালি দিয়ে লম্বা দাগ টেনে তারিখ, সময় ও "The voting is closed" লিখে PrO এবং P2 সই করুন।' },
+    { id: 'clos_5', role: 'pro', text: 'মেশিন OFF ও ব্যাটারি: CU Switch OFF করুন। VVPAT Power Pack (Battery) এজেন্টদের সামনে খুলে আলাদা কভারে ভরে রাখুন। মেশিনের ভিতর রাখবেন না।', critical: true, mistake: 'প্যাকিংয়ের সময় VVPAT ব্যাটারি মেশিনের ভিতরেই রেখে দেওয়া (এতে মেশিন খারাপ হতে পারে)।' },
+    { id: 'clos_6', role: 'all', text: 'কেবল খোলা ও প্যাকিং: সমস্ত কেবল সাবধানে খুলুন। VVPAT Knob-কে Horizontal (Transport) মোডে ঘোরান। তিনটি ইউনিট Carrying Case-এ ভরে Address Tag (এজেন্টদের সইসহ) ও গালা দিয়ে সিল করুন।' },
+    { id: 'clos_7', role: 'pro', text: 'Form 17C ও ডিক্লারেশন: Form 17C Part-1 পূরণ করুন। উপস্থিত সকল এজেন্টদের সই নিন এবং প্রত্যেক এজেন্টকে একটি করে attested কপি দিন। PrO Declaration সই করুন।' },
+    { id: 'clos_8', role: 'all', text: 'প্যাকেট ১ (Statutory - সবুজ খাম): Form 17C, 17A Register, Marked Copy, Voter Slips বান্ডিল ভরে গালা ও ট্যাগ দিয়ে সিল করুন।' },
+    { id: 'clos_9', role: 'all', text: 'প্যাকেট ২ ও ৩: Non-Statutory (হলুদ) খামে PrO Diary, Visit Sheet ইত্যাদি ভরুন। Special Booklet (Mock Poll Certificate সহ) হাতে রাখুন।' },
+    { id: 'clos_10', role: 'pro', text: 'PrO Diary: PrO Diary-এ ক্লোজিং-এর পুরো প্রক্রিয়া, মোট ভোট ও ঘটনাবলি লিখে ফাইনাল এন্ট্রি করুন।' }
+  ],
+  rc: [
+    { id: 'rc_1', role: 'pro', text: 'রওনা হওয়ার আগে চেক: সমস্ত মেশিন (CU, BU, VVPAT) এবং প্যাকেট (সবুজ, হলুদ খাম ও Special Booklet) সঠিকভাবে এজেন্টদের সইসহ সিল করা আছে কিনা নিশ্চিত করুন।' },
+    { id: 'rc_2', role: 'pro', text: 'VVPAT ব্যাটারি: VVPAT Power Pack মেশিনের ভিতরে নেই এবং আলাদা কভারে আছে কিনা তা পুনরায় চেক করুন।', critical: true },
+    { id: 'rc_3', role: 'pro', text: 'মুভমেন্ট: Security Convoy-এর সাথে যোগাযোগ করুন এবং তাদের সাথেই RC-এর উদ্দেশ্যে রওনা দিন (একা যাবেন না)।', critical: true },
+    { id: 'rc_4', role: 'all', text: 'RC পৌঁছানো: RC-এ পৌঁছোনোর পর নির্দিষ্ট কাউন্টার খুঁজে বের করুন এবং নির্দেশ থাকলে "Safe Arrival at RC" SMS পাঠান।' },
+    { id: 'rc_5', role: 'pro', text: 'মেশিন জমা (PrO): CU, BU, VVPAT-এর সিলড কেস এবং Special Booklet সরাসরি কাউন্টারে জমা দিন।' },
+    { id: 'rc_6', role: 'p1', text: 'প্যাকেট ১ জমা (P1): Statutory Cover (সবুজ খাম) - Form 17C, 17A Register, Marked Copy, Voter Slips কাউন্টারে জমা দিন।' },
+    { id: 'rc_7', role: 'p2', text: 'প্যাকেট ২ জমা (P2): Non-Statutory Cover (হলুদ খাম) - PrO Diary, Form 14/14A, Agent Movement Sheet জমা দিন।' },
+    { id: 'rc_8', role: 'p3', text: 'অন্যান্য জমা (P3): Metal Seal, Arrow Cross Mark Stamp এবং অন্যান্য জিনিসপত্র জমা দিন।' },
+    { id: 'rc_9', role: 'pro', text: 'M21 রসিদ: সমস্ত জিনিসপত্র জমার পর RC অফিসারের কাছ থেকে "FORM M21 - Receipt" (প্রাপ্তির রসিদ) অবশ্যই সংগ্রহ করুন। রসিদ ছাড়া ফিরবেন না!', critical: true, mistake: 'RC-তে জমা দেওয়ার পর M21 রসিদ না নিয়েই চলে আসা।' },
+    { id: 'rc_10', role: 'all', text: 'ডিউটি সমাপ্ত: RC-এর কাজ শেষে বাড়ি ফিরে "Safe Arrival" SMS করুন এবং বিশ্রাম নিন।' }
+  ]
+};
+
+// --- SVG ICONS ---
+const Icons = {
+  Home: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  Alert: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>,
+  User: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+  XCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+  Lightbulb: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>,
+  Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  Minus: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  Save: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+  Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+};
+
+// --- MAIN APP COMPONENT ---
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('home');
+  const [completedTasks, setCompletedTasks] = useState({});
+  const [currentStageId, setCurrentStageId] = useState('dc');
+  const [tally, setTally] = useState({ male: 0, female: 0, tg: 0 });
+  const [tallyReports, setTallyReports] = useState([]); // Array to store 2-hourly reports
+
+  // Load state on mount
+  useEffect(() => {
+    const savedTasks = localStorage.getItem('poll_tasks');
+    const savedStage = localStorage.getItem('poll_stage');
+    const savedTally = localStorage.getItem('poll_tally');
+    const savedReports = localStorage.getItem('poll_reports');
+
+    if (savedTasks) setCompletedTasks(JSON.parse(savedTasks));
+    if (savedStage) setCurrentStageId(savedStage);
+    if (savedTally) setTally(JSON.parse(savedTally));
+    if (savedReports) setTallyReports(JSON.parse(savedReports));
+  }, []);
+
+  // Save state on change
+  useEffect(() => {
+    localStorage.setItem('poll_tasks', JSON.stringify(completedTasks));
+    localStorage.setItem('poll_stage', currentStageId);
+    localStorage.setItem('poll_tally', JSON.stringify(tally));
+    localStorage.setItem('poll_reports', JSON.stringify(tallyReports));
+  }, [completedTasks, currentStageId, tally, tallyReports]);
+
+  const toggleTask = (taskId) => {
+    setCompletedTasks(prev => ({
+      ...prev,
+      [taskId]: !prev[taskId]
+    }));
+  };
+
+  const clearAllData = () => {
+    if(window.confirm("সতর্কতা: আপনি কি অ্যাপের সমস্ত ডেটা মুছে ফেলতে চান? এটি আর ফিরিয়ে আনা যাবে না।")) {
+      localStorage.clear();
+      setCompletedTasks({});
+      setCurrentStageId('dc');
+      setTally({ male: 0, female: 0, tg: 0 });
+      setTallyReports([]);
+      setActiveTab('home');
+      window.scrollTo(0, 0);
+    }
+  };
+
+  const totalVotes = tally.male + tally.female + tally.tg;
+
+  return (
+    <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-800">
+      {/* HEADER */}
+      <header className="bg-blue-800 text-white p-4 shadow-md flex justify-between items-center shrink-0">
+        <div>
+          <h1 className="font-bold text-xl leading-tight tracking-tight">ভোটকর্মী সহায়িকা</h1>
+          <p className="text-xs text-blue-200 mt-0.5">Election Duty 2026</p>
+        </div>
+        <div className="bg-blue-900 px-3 py-1.5 rounded-lg border border-blue-700 text-center shadow-inner">
+          <p className="text-[10px] text-blue-300 uppercase tracking-wider font-bold">Total Votes</p>
+          <p className="font-black text-lg leading-none mt-0.5">{totalVotes}</p>
+        </div>
+      </header>
+
+      {/* TOP STAGE INDICATOR */}
+      <div className="bg-blue-900 text-xs text-blue-100 px-4 py-2 flex justify-between items-center shadow-inner border-t border-blue-950">
+        <span>বর্তমান পর্ব: <strong>{STAGES.find(s => s.id === currentStageId)?.title}</strong></span>
+      </div>
+
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 overflow-y-auto p-4 pb-28">
+        {activeTab === 'home' && (
+          <Dashboard 
+            currentStageId={currentStageId} 
+            setCurrentStageId={setCurrentStageId}
+            completedTasks={completedTasks}
+            setActiveTab={setActiveTab}
+            clearAllData={clearAllData}
+          />
+        )}
+        {activeTab === 'myrole' && (
+          <RoleGuide />
+        )}
+        {activeTab === 'checklist' && (
+          <ChecklistView 
+            currentStageId={currentStageId} 
+            setCurrentStageId={setCurrentStageId}
+            completedTasks={completedTasks}
+            toggleTask={toggleTask}
+          />
+        )}
+        {activeTab === 'tally' && (
+          <TallyCounter 
+            tally={tally} 
+            setTally={setTally} 
+            totalVotes={totalVotes}
+            tallyReports={tallyReports}
+            setTallyReports={setTallyReports}
+          />
+        )}
+        {activeTab === 'forms' && <FormsGuide />}
+      </main>
+
+      {/* BOTTOM NAVIGATION (5 Tabs) */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-2 pb-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
+        <NavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Icons.Home />} label="হোম" />
+        <NavButton active={activeTab === 'myrole'} onClick={() => setActiveTab('myrole')} icon={<Icons.User />} label="আমার ডিউটি" />
+        <NavButton active={activeTab === 'checklist'} onClick={() => setActiveTab('checklist')} icon={<Icons.Check />} label="চেকলিস্ট" />
+        <NavButton active={activeTab === 'tally'} onClick={() => setActiveTab('tally')} icon={<Icons.Activity />} label="ট্যালি" pulse={currentStageId === 'live'} />
+        <NavButton active={activeTab === 'forms'} onClick={() => setActiveTab('forms')} icon={<Icons.FileText />} label="ফর্মস" />
+      </nav>
+    </div>
+  );
+}
+
+// --- SUB-COMPONENTS ---
+
+function NavButton({ active, onClick, icon, label, pulse }) {
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center p-2 min-w-[60px] relative ${active ? 'text-blue-600' : 'text-slate-400'}`}>
+      <div className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`}>
+        {icon}
+        {pulse && !active && <span className="absolute top-1 right-3 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>}
+        {pulse && !active && <span className="absolute top-1 right-3 w-2 h-2 bg-red-500 rounded-full"></span>}
+      </div>
+      <span className="text-[10px] font-bold tracking-wide">{label}</span>
+    </button>
+  );
+}
+
+function Dashboard({ currentStageId, setCurrentStageId, completedTasks, setActiveTab, clearAllData }) {
+  const currentStageIndex = STAGES.findIndex(s => s.id === currentStageId);
+  
+  return (
+    <div className="space-y-6">
+      
+      {/* Dynamic Progress Bars for ALL Stages */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+        <h3 className="font-bold text-slate-800 mb-4 px-1">কাজের অগ্রগতি (Checklist Progress)</h3>
+        <div className="space-y-4">
+          {STAGES.map(stage => {
+            const tasks = CHECKLIST_DATA[stage.id] || [];
+            const completed = tasks.filter(t => completedTasks[t.id]).length;
+            const total = tasks.length;
+            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+            return (
+              <div key={stage.id} className="relative">
+                <div className="flex justify-between text-xs font-bold mb-1">
+                  <span className={percent === 100 ? 'text-green-600' : 'text-slate-700'}>{stage.title}</span>
+                  <span className={percent === 100 ? 'text-green-600' : 'text-blue-600'}>{percent}%</span>
+                </div>
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200/50">
+                  <div 
+                    className={`h-full transition-all duration-700 ${percent === 100 ? 'bg-green-500' : 'bg-blue-500'}`} 
+                    style={{ width: `${percent}%` }}
+                  ></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Quick Actions Grid */}
+      <div>
+        <h3 className="font-bold text-slate-800 mb-3 px-1">কুইক অ্যাকশন (Quick Actions)</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <ActionCard title="টেন্ডার ভোট" desc="Form 17B ইস্যু" color="border-orange-200 bg-orange-50" text="text-orange-800" onClick={() => setActiveTab('forms')} />
+          <ActionCard title="২ ঘণ্টার রিপোর্ট" desc="SMS গাইডলাইন" color="border-indigo-200 bg-indigo-50" text="text-indigo-800" onClick={() => alert("SMS ফর্ম্যাট:\n1. Safe Arrival: WB EL <AC> P <Stn>\n2. Mock Poll: WB EL <AC> M <Stn>\n3. 2-Hourly: WB EL <AC> V <Stn> <Votes>")} />
+          <ActionCard title="মক পোল ক্লিয়ার" desc="CRC নিশ্চিতকরণ" color="border-red-200 bg-red-50" text="text-red-800" onClick={() => alert("মনে রাখবেন: Close -> Result -> Clear (CRC) করা বাধ্যতামূলক। Total=0 হতে হবে।")} />
+          <ActionCard title="হেল্প / ইমারজেন্সি" desc="সাধারণ সমস্যা" color="border-slate-200 bg-white" text="text-slate-800" onClick={() => setActiveTab('forms')} />
+        </div>
+      </div>
+
+      {/* Factory Reset Button (Entire App Reset) */}
+      <div className="mt-8 mb-2">
+        <button 
+          onClick={clearAllData} 
+          className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3.5 rounded-xl border border-red-200 transition-colors flex items-center justify-center gap-2 shadow-sm"
+        >
+          <Icons.Trash /> সম্পূর্ণ অ্যাপ রিসেট করুন (Factory Reset)
+        </button>
+        <p className="text-[10px] text-center text-slate-400 mt-2 font-medium leading-relaxed">
+          নতুন ডিউটি শুরু করার আগে এটি ব্যবহার করুন।<br/>এটি চাপলে অফলাইনে সেভ থাকা সমস্ত ডেটা মুছে যাবে।
+        </p>
+        <div className="mt-6 pt-4 border-t border-slate-200 text-center">
+           <p className="text-xs font-bold text-slate-500">Prepared by Arnab Ganguli</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionCard({ title, desc, color, text, onClick }) {
+  return (
+    <button onClick={onClick} className={`p-4 rounded-xl border text-left active:scale-95 transition-transform ${color} shadow-sm`}>
+      <h4 className={`font-bold ${text} leading-tight`}>{title}</h4>
+      <p className="text-[11px] font-medium opacity-80 mt-1">{desc}</p>
+    </button>
+  );
+}
+
+// --- TALLY COUNTER COMPONENT ---
+function TallyCounter({ tally, setTally, totalVotes, tallyReports, setTallyReports }) {
+  const updateCount = (type, increment) => {
+    setTally(prev => ({
+      ...prev,
+      [type]: Math.max(0, prev[type] + (increment ? 1 : -1))
+    }));
+  };
+
+  const handleReset = () => {
+    if(window.confirm("আপনি কি নিশ্চিত যে বর্তমান ট্যালি জিরো (0) করতে চান? (আপনার সেভ করা রিপোর্ট মুছবে না)")) {
+      setTally({ male: 0, female: 0, tg: 0 });
+    }
+  };
+
+  const handleSaveReport = () => {
+    const times = ["9 AM", "11 AM", "1 PM", "3 PM", "5 PM", "6 PM (Final)"];
+    
+    // Suggest the next time slot based on how many reports exist
+    const defaultTime = times[Math.min(tallyReports.length, times.length - 1)];
+    
+    const timeLabel = window.prompt("এই রিপোর্টের সময় দিন (যেমন: 9 AM, 11 AM):", defaultTime);
+    
+    if (timeLabel) {
+      const newReport = {
+        id: Date.now(),
+        timeLabel: timeLabel,
+        total: totalVotes,
+        male: tally.male,
+        female: tally.female,
+        tg: tally.tg,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      setTallyReports([...tallyReports, newReport]);
+    }
+  };
+
+  const deleteReport = (id) => {
+    if(window.confirm("আপনি কি এই রিপোর্টটি মুছে ফেলতে চান?")) {
+      setTallyReports(tallyReports.filter(r => r.id !== id));
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex justify-between items-center px-1">
+        <h2 className="text-xl font-bold text-slate-800">ম্যানুয়াল ট্যালি (Tally)</h2>
+        <button onClick={handleReset} className="text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1.5 rounded-lg transition-colors border border-red-200">
+          Reset Tally
+        </button>
+      </div>
+
+      <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg text-center relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+        <p className="text-slate-300 font-bold uppercase tracking-wider text-sm mb-1">বর্তমান এন্ট্রি</p>
+        <p className="text-6xl font-black tracking-tight">{totalVotes}</p>
+        
+        <button 
+          onClick={handleSaveReport}
+          className="mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl w-full flex items-center justify-center gap-2 transition-colors border border-blue-400 shadow-sm"
+        >
+          <Icons.Save /> এই মুহূর্তের হিসাব সেভ করুন
+        </button>
+      </div>
+
+      <div className="grid gap-3">
+        <CounterRow label="পুরুষ (Male)" count={tally.male} onAdd={() => updateCount('male', true)} onSub={() => updateCount('male', false)} color="blue" />
+        <CounterRow label="নারী (Female)" count={tally.female} onAdd={() => updateCount('female', true)} onSub={() => updateCount('female', false)} color="pink" />
+        <CounterRow label="তৃতীয় লিঙ্গ (TG)" count={tally.tg} onAdd={() => updateCount('tg', true)} onSub={() => updateCount('tg', false)} color="purple" />
+      </div>
+
+      {/* --- SAVED REPORTS SECTION --- */}
+      {tallyReports.length > 0 && (
+        <div className="pt-4 border-t border-slate-200">
+          <h3 className="font-bold text-slate-800 mb-3 px-1">সেভ করা রিপোর্ট (২ ঘণ্টা অন্তর)</h3>
+          <div className="space-y-3">
+            {tallyReports.map(report => (
+              <div key={report.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
+                <button onClick={() => deleteReport(report.id)} className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors">
+                  <Icons.XCircle />
+                </button>
+                <div className="flex justify-between items-end mb-2">
+                  <div>
+                    <p className="font-bold text-blue-800 text-lg">{report.timeLabel} Report</p>
+                    <p className="text-[10px] text-slate-500 font-medium">Saved at: {report.timestamp}</p>
+                  </div>
+                  <div className="text-right pr-6">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total</p>
+                    <p className="font-black text-xl text-slate-800 leading-none">{report.total}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 text-xs font-medium text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-3">
+                  <span className="flex-1 text-center border-r border-slate-200">M: <strong className="text-blue-600">{report.male}</strong></span>
+                  <span className="flex-1 text-center border-r border-slate-200">F: <strong className="text-pink-600">{report.female}</strong></span>
+                  <span className="flex-1 text-center">TG: <strong className="text-purple-600">{report.tg}</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CounterRow({ label, count, onAdd, onSub, color }) {
+  const colorMap = {
+    blue: 'bg-blue-50 border-blue-200 text-blue-800',
+    pink: 'bg-pink-50 border-pink-200 text-pink-800',
+    purple: 'bg-purple-50 border-purple-200 text-purple-800',
+  };
+
+  return (
+    <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${colorMap[color]} shadow-sm`}>
+      <span className="font-bold">{label}</span>
+      <div className="flex items-center gap-3">
+        <button onClick={onSub} className="w-10 h-10 bg-white border shadow-sm rounded-full flex items-center justify-center active:scale-90 transition-transform text-slate-600">
+          <Icons.Minus />
+        </button>
+        <span className="w-10 text-center text-xl font-black">{count}</span>
+        <button onClick={onAdd} className="w-12 h-12 bg-white border shadow-md rounded-full flex items-center justify-center active:scale-90 transition-transform text-slate-800">
+          <Icons.Plus />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- ROLE GUIDE COMPONENT ---
+function RoleGuide() {
+  const [selectedRole, setSelectedRole] = useState('pro');
+
+  const roleLabels = { pro: 'প্রিসাইডিং অফিসার (PrO)', p1: '১ম পোলিং অফিসার (P1)', p2: '২য় পোলিং অফিসার (P2)', p3: '৩য় পোলিং অফিসার (P3)' };
+
+  // Filter tasks that belong to 'all' or the specific role
+  const getTasksForRole = (stageId) => {
+    return (CHECKLIST_DATA[stageId] || []).filter(task => task.role === 'all' || task.role === selectedRole);
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+        <label className="block text-sm font-bold text-slate-700 mb-2">আপনার পদ (Role) বেছে নিন:</label>
+        <div className="relative">
+          <select 
+            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 outline-none appearance-none"
+            value={selectedRole} 
+            onChange={e => setSelectedRole(e.target.value)}
+          >
+            <option value="pro">প্রিসাইডিং অফিসার (PrO)</option>
+            <option value="p1">১ম পোলিং অফিসার (P1)</option>
+            <option value="p2">২য় পোলিং অফিসার (P2)</option>
+            <option value="p3">৩য় পোলিং অফিসার (P3)</option>
+          </select>
+          <div className="absolute right-4 top-4 text-slate-400 pointer-events-none"><Icons.ChevronRight /></div>
+        </div>
+      </div>
+
+      <h3 className="font-bold text-lg text-slate-800 px-1 pt-2 border-b pb-2 border-slate-200">
+        {roleLabels[selectedRole]}-এর দায়িত্বসমূহ
+      </h3>
+
+      <div className="space-y-4">
+        {STAGES.map(stage => {
+          const tasks = getTasksForRole(stage.id);
+          if (tasks.length === 0) return null;
+          
+          return (
+            <div key={stage.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 p-3 border-b border-slate-200 font-bold text-slate-700 text-sm">
+                {stage.title}
+              </div>
+              <div className="divide-y divide-slate-100">
+                {tasks.map((task, idx) => (
+                  <div key={task.id} className="p-4 flex gap-3">
+                    <span className="font-bold text-blue-500 mt-0.5">{idx + 1}.</span>
+                    <p className="text-sm font-medium text-slate-700 leading-relaxed">{task.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// --- MAIN CHECKLIST COMPONENT WITH MISTAKES/TIPS ---
+function ChecklistView({ currentStageId, setCurrentStageId, completedTasks, toggleTask }) {
+  const stageTasks = CHECKLIST_DATA[currentStageId] || [];
+
+  const roleColors = {
+    all: 'bg-slate-100 text-slate-600',
+    pro: 'bg-blue-100 text-blue-700',
+    p1: 'bg-purple-100 text-purple-700',
+    p2: 'bg-orange-100 text-orange-700',
+    p3: 'bg-teal-100 text-teal-700'
+  };
+  
+  const roleLabels = { all: 'টিম (Team)', pro: 'PrO', p1: 'P1', p2: 'P2', p3: 'P3' };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar">
+        {STAGES.map(stage => (
+          <button 
+            key={stage.id}
+            onClick={() => setCurrentStageId(stage.id)}
+            className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${currentStageId === stage.id ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+          >
+            {stage.short}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
+        {stageTasks.length === 0 ? (
+          <p className="p-6 text-center text-slate-500 font-medium">এই পর্বে কোনো চেকলিস্ট নেই।</p>
+        ) : (
+          stageTasks.map(task => {
+            const isDone = completedTasks[task.id];
+            return (
+              <div key={task.id} className={`p-4 transition-colors ${isDone ? 'bg-green-50/30' : 'hover:bg-slate-50'}`}>
+                <div className="flex items-start gap-4 cursor-pointer" onClick={() => toggleTask(task.id)}>
+                  <div className="shrink-0 mt-0.5">
+                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
+                      ${isDone ? 'bg-green-500 border-green-500 text-white scale-110' : 'border-slate-300 bg-white'}
+                      ${task.critical && !isDone ? 'border-red-400 bg-red-50' : ''}
+                    `}>
+                      {isDone && <Icons.Check />}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${roleColors[task.role]}`}>
+                        {roleLabels[task.role]}
+                      </span>
+                      {task.critical && !isDone && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100 px-2 py-0.5 rounded">অত্যন্ত জরুরি</span>
+                      )}
+                    </div>
+                    <p className={`text-sm leading-relaxed ${isDone ? 'text-slate-400 line-through' : 'text-slate-800 font-medium'} ${task.critical && !isDone ? 'text-red-700' : ''}`}>
+                      {task.text}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Show Mistake or Tip if exists and task is NOT done */}
+                {!isDone && (task.mistake || task.tip) && (
+                  <div className="ml-10 mt-3 space-y-2 pr-2">
+                    {task.mistake && (
+                      <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                        <h4 className="text-[11px] font-bold text-red-800 mb-1 flex items-center gap-1 uppercase tracking-wider">
+                          <Icons.XCircle /> কী ভুল হতে পারে
+                        </h4>
+                        <p className="text-sm text-red-700/90 font-medium leading-snug">{task.mistake}</p>
+                      </div>
+                    )}
+                    {task.tip && (
+                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                        <h4 className="text-[11px] font-bold text-amber-800 mb-1 flex items-center gap-1 uppercase tracking-wider">
+                          <Icons.Lightbulb /> টিপস
+                        </h4>
+                        <p className="text-sm text-amber-800/90 font-medium leading-snug">{task.tip}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- FORMS GUIDE ---
+function FormsGuide() {
+  const [openId, setOpenId] = useState('17a');
+
+  const forms = [
+    {
+      id: '17a',
+      title: 'Form 17A (Register of Voters)',
+      desc: 'দ্বিতীয় পোলিং অফিসার (P2)-এর দায়িত্ব',
+      content: (
+        <div className="space-y-4">
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left text-sm text-slate-700">
+              <thead className="bg-slate-100 text-slate-800 font-bold">
+                <tr>
+                  <th className="p-3 border-b border-r border-slate-200">কলাম</th>
+                  <th className="p-3 border-b border-slate-200">কী লিখবেন (উদাহরণ)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                <tr><td className="p-3 border-r font-medium whitespace-nowrap">1. Sl. No.</td><td className="p-3">ছাপানো থাকে (1, 2, 3...)</td></tr>
+                <tr><td className="p-3 border-r font-medium">2. Sl. No. in Roll</td><td className="p-3">Marked Copy অনুযায়ী (যেমন: 405)</td></tr>
+                <tr><td className="p-3 border-r font-medium">3. Document Details</td><td className="p-3">"EPIC" বা অন্য ID হলে শেষ ৪ সংখ্যা (যেমন: Aadhaar 8492)</td></tr>
+                <tr><td className="p-3 border-r font-medium">4. Signature/LTI</td><td className="p-3">ভোটারের সই বা বাঁ হাতের বুড়ো আঙুলের ছাপ</td></tr>
+                <tr><td className="p-3 border-r font-medium">5. Remarks</td><td className="p-3">সাধারণত ফাঁকা। বিশেষ ক্ষেত্রে "Refused to vote"</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+             <h4 className="text-xs font-bold text-red-800 mb-1 flex items-center gap-1"><Icons.XCircle /> 🔴 ভুল করবেন না</h4>
+             <ul className="list-disc pl-5 text-sm text-red-700 space-y-1">
+               <li>ভোট শুরুর আগে Zero Certificate সই করতে ভুলবেন না।</li>
+               <li>শেষ এন্ট্রির নিচে লাল কালি দিয়ে দাগ টানতে ভুলবেন না।</li>
+             </ul>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: '17c',
+      title: 'Form 17C (Account of Votes)',
+      desc: 'PrO পূরণ করবেন, প্রত্যেক এজেন্টকে কপি দেবেন।',
+      content: (
+        <div className="space-y-4">
+           <ul className="list-disc pl-5 space-y-2 text-sm text-slate-700 font-medium">
+            <li><strong>Item 1-5:</strong> বুথের বেসিক তথ্য।</li>
+            <li><strong>Item 6:</strong> 17A অনুযায়ী মোট ভোটারের সংখ্যা।</li>
+            <li><strong>Item 7:</strong> যারা ভোট দিতে অস্বীকার করেছেন (49-O)।</li>
+            <li><strong>Item 8:</strong> যাদের ভোট বাতিল করা হয়েছে।</li>
+            <li><strong>Item 10:</strong> EVM-এ রেকর্ড হওয়া মোট ভোট।</li>
+          </ul>
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+             <h4 className="text-xs font-bold text-amber-800 mb-1 flex items-center gap-1"><Icons.Lightbulb /> 💡 টিপস</h4>
+             <p className="text-sm text-amber-800">EVM Total (Item 10) সর্বদা = [Item 6] মাইনাস [Item 7] মাইনাস [Item 8] হতে হবে। মিলতে বাধ্য।</p>
+          </div>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-blue-900 text-white p-4 rounded-2xl shadow-md">
+        <h2 className="text-xl font-bold flex items-center gap-2"><Icons.FileText /> ফর্ম গাইডলাইন</h2>
+        <p className="text-xs text-blue-200 mt-1">কলাম অনুযায়ী তথ্য ও সতর্কতা</p>
+      </div>
+      
+      {forms.map(form => (
+        <div key={form.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <button 
+            onClick={() => setOpenId(openId === form.id ? null : form.id)}
+            className="w-full p-4 flex justify-between items-center text-left bg-slate-50 hover:bg-slate-100 transition-colors"
+          >
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg">{form.title}</h3>
+              <p className="text-xs font-medium text-slate-500 mt-0.5">{form.desc}</p>
+            </div>
+            <div className={`transition-transform duration-300 ${openId === form.id ? 'rotate-90' : ''}`}>
+              <Icons.ChevronRight />
+            </div>
+          </button>
+          
+          {openId === form.id && (
+            <div className="p-4 border-t border-slate-100 bg-white animate-in slide-in-from-top-2">
+              {form.content}
+            </div>
+          )}
+        </div>
+      ))}
+      <EmergencyHelp />
+    </div>
+  );
+}
+
+function EmergencyHelp() {
+  const issues = [
+    {
+      q: "EVM খারাপ হলে কী করবেন?",
+      a: "মক পোলের সময়: শুধু খারাপ ইউনিট বদলান।\nআসল ভোটের সময়: CU বা BU খারাপ হলে পুরো সেট (CU+BU+VVPAT) বদলাতে হবে। শুধু VVPAT খারাপ হলে শুধু VVPAT বদলাবেন।"
+    },
+    {
+      q: "ভোটার 17A এন্ট্রির পর ভোট না দিলে?",
+      a: "জোর করবেন না। Voter Slip ফেরত নিন। 17A এর Remarks কলামে 'Refused to vote' লিখুন এবং PrO-কে সই করতে হবে।"
+    },
+    {
+      q: "ভোট শেষের সময় হয়ে গেছে কিন্তু লাইনে লোক আছে",
+      a: "বিকেল ৬টায় (বা শেষের নির্দিষ্ট সময়ে), লাইনের একেবারে শেষে দাঁড়ানো ব্যক্তি থেকে শুরু করে প্রথম ব্যক্তি পর্যন্ত ১ থেকে সিরিয়াল করা Queue Slip বিলি করুন।"
+    }
+  ];
+
+  return (
+    <div className="space-y-4 mt-6">
+      <div className="bg-red-50 border border-red-200 p-5 rounded-2xl shadow-sm">
+        <h3 className="font-bold text-red-800 flex items-center gap-2 mb-3">
+          <Icons.Alert /> অত্যন্ত জরুরি নিয়মাবলি
+        </h3>
+        <ul className="space-y-2 text-sm text-red-700 font-medium">
+          <li className="flex gap-2"><span>🔴</span> ডিসি-তে VVPAT টেস্ট করবেন না।</li>
+          <li className="flex gap-2"><span>🔴</span> CU ON থাকা অবস্থায় তার কানেক্ট বা ডিসকানেক্ট করবেন না।</li>
+          <li className="flex gap-2"><span>🔴</span> প্যাকিংয়ের আগে VVPAT ব্যাটারি খুলতে ভুলবেন না।</li>
+        </ul>
+      </div>
+
+      <h2 className="text-xl font-bold text-slate-800 px-1 pt-4 border-t border-slate-200">সাধারণ সমস্যা ও সমাধান</h2>
+      
+      <div className="space-y-3">
+        {issues.map((issue, idx) => (
+          <div key={idx} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <h4 className="font-bold text-slate-800 mb-2">{issue.q}</h4>
+            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{issue.a}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
