@@ -61,7 +61,7 @@
             { id: 'set_5', role: 'pro', text: 'Voting Compartment: গোপনীয়তা পুরোপুরি নিশ্চিত করা, জানালা/দরজার পাশে না রাখা। ঠিক উপরে বা সামনে হাই ওয়াটেজ বাল্ব (High wattage bulb) না রাখা।' },
             { id: 'set_6', role: 'p3', text: 'পোস্টার লাগানো: Form 7A, Notice 49-O, এরিয়া লিমিটেশন এবং "How to Cast Vote" নোটিশ বুথের বাইরে ও ভিতরে লাগানো।' },
             { id: 'set_7', role: 'pro', text: 'বুথ সাজানো: অফিসার ও এজেন্টদের বসার জায়গা ঠিক করা, পুরুষ/মহিলাদের আলাদা লাইন এবং "ধূমপান নিষেধ" নোটিশ লাগানো।' },
-            { id: 'set_8', role: 'p3', text: 'মেশিন প্লেসমেন্ট ও কেবল: মেশিন নির্দিষ্ট জায়গায় রাখা (কানেক্ট না করে) এবং Transparent Cello Tape দিয়ে তারগুলো টেবিলের পায়ায় আটকানোর প্রস্তুতি নেওয়া।' },
+            { id: 'set_8', role: 'p3', text: 'মেশিন প্লেসমেন্ট ও কেবল: মেশিন নির্দিষ্ট জায়গায় রাখা (কানেক্ট না করে) এবং Transparent Cello Tape দিয়ে তারগুলো টেবিলের পায়ায় আটকানোর প্রস্তুতি নেওয়া।' },
             { id: 'set_9', role: 'pro', text: 'ডকুমেন্টেশন: Form 17A বাদে সমস্ত ফর্ম, এনভেলপ ও স্লিপে Distinguishing Mark এবং PrO সই করে রাখা।' },
             { id: 'set_10', role: 'p1', text: 'P1 ডিউটি: ভোটার লিস্টের Marked Copy ভালো করে চেক করা এবং ASD লিস্ট পড়ে নেওয়া।' },
             { id: 'set_11', role: 'p2', text: 'P2 ডিউটি: Form 17A Register-এর উপর PS ও AC নম্বর লেখা, ভোটার স্লিপ আলাদা করা এবং Indelible Ink চেক করা।' },
@@ -145,17 +145,20 @@
           const [currentStageId, setCurrentStageId] = useState('dc');
           const [tally, setTally] = useState({ male: 0, female: 0, tg: 0 });
           const [tallyReports, setTallyReports] = useState([]); 
+          const [completedForms, setCompletedForms] = useState({}); 
 
           useEffect(() => {
             const savedTasks = localStorage.getItem('poll_tasks');
             const savedStage = localStorage.getItem('poll_stage');
             const savedTally = localStorage.getItem('poll_tally');
             const savedReports = localStorage.getItem('poll_reports');
+            const savedForms = localStorage.getItem('poll_forms');
 
             if (savedTasks) setCompletedTasks(JSON.parse(savedTasks));
             if (savedStage) setCurrentStageId(savedStage);
             if (savedTally) setTally(JSON.parse(savedTally));
             if (savedReports) setTallyReports(JSON.parse(savedReports));
+            if (savedForms) setCompletedForms(JSON.parse(savedForms));
           }, []);
 
           useEffect(() => {
@@ -163,12 +166,20 @@
             localStorage.setItem('poll_stage', currentStageId);
             localStorage.setItem('poll_tally', JSON.stringify(tally));
             localStorage.setItem('poll_reports', JSON.stringify(tallyReports));
-          }, [completedTasks, currentStageId, tally, tallyReports]);
+            localStorage.setItem('poll_forms', JSON.stringify(completedForms)); 
+          }, [completedTasks, currentStageId, tally, tallyReports, completedForms]);
 
           const toggleTask = (taskId) => {
             setCompletedTasks(prev => ({
               ...prev,
               [taskId]: !prev[taskId]
+            }));
+          };
+
+          const toggleFormTask = (formId) => {
+            setCompletedForms(prev => ({
+              ...prev,
+              [formId]: !prev[formId]
             }));
           };
 
@@ -179,6 +190,7 @@
               setCurrentStageId('dc');
               setTally({ male: 0, female: 0, tg: 0 });
               setTallyReports([]);
+              setCompletedForms({});
               setActiveTab('home');
               window.scrollTo(0, 0);
             }
@@ -233,7 +245,7 @@
                     setTallyReports={setTallyReports}
                   />
                 )}
-                {activeTab === 'forms' && <FormsGuide />}
+                {activeTab === 'forms' && <FormsGuide completedForms={completedForms} toggleFormTask={toggleFormTask} />}
               </main>
 
               <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-2 pb-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
@@ -598,95 +610,117 @@
           );
         }
 
-        function FormsGuide() {
-          const [openId, setOpenId] = useState('17a');
-
-          const forms = [
-            {
-              id: '17a',
-              title: 'Form 17A (Register of Voters)',
-              desc: 'দ্বিতীয় পোলিং অফিসার (P2)-এর দায়িত্ব',
-              content: (
-                <div className="space-y-4">
-                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table className="w-full text-left text-sm text-slate-700">
-                      <thead className="bg-slate-100 text-slate-800 font-bold">
-                        <tr>
-                          <th className="p-3 border-b border-r border-slate-200">কলাম</th>
-                          <th className="p-3 border-b border-slate-200">কী লিখবেন (উদাহরণ)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        <tr><td className="p-3 border-r font-medium whitespace-nowrap">1. Sl. No.</td><td className="p-3">ছাপানো থাকে (1, 2, 3...)</td></tr>
-                        <tr><td className="p-3 border-r font-medium">2. Sl. No. in Roll</td><td className="p-3">Marked Copy অনুযায়ী (যেমন: 405)</td></tr>
-                        <tr><td className="p-3 border-r font-medium">3. Document Details</td><td className="p-3">"EPIC" বা অন্য ID হলে শেষ ৪ সংখ্যা (যেমন: Aadhaar 8492)</td></tr>
-                        <tr><td className="p-3 border-r font-medium">4. Signature/LTI</td><td className="p-3">ভোটারের সই বা বাঁ হাতের বুড়ো আঙুলের ছাপ</td></tr>
-                        <tr><td className="p-3 border-r font-medium">5. Remarks</td><td className="p-3">সাধারণত ফাঁকা। বিশেষ ক্ষেত্রে "Refused to vote"</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="bg-red-50 border border-red-100 rounded-xl p-3">
-                     <h4 className="text-xs font-bold text-red-800 mb-1 flex items-center gap-1"><Icons.XCircle /> 🔴 ভুল করবেন না</h4>
-                     <ul className="list-disc pl-5 text-sm text-red-700 space-y-1">
-                       <li>ভোট শুরুর আগে Zero Certificate সই করতে ভুলবেন না।</li>
-                       <li>শেষ এন্ট্রির নিচে লাল কালি দিয়ে দাগ টানতে ভুলবেন না।</li>
-                     </ul>
-                  </div>
-                </div>
-              )
-            },
-            {
-              id: '17c',
-              title: 'Form 17C (Account of Votes)',
-              desc: 'PrO পূরণ করবেন, প্রত্যেক এজেন্টকে কপি দেবেন।',
-              content: (
-                <div className="space-y-4">
-                   <ul className="list-disc pl-5 space-y-2 text-sm text-slate-700 font-medium">
-                    <li><strong>Item 1-5:</strong> বুথের বেসিক তথ্য।</li>
-                    <li><strong>Item 6:</strong> 17A অনুযায়ী মোট ভোটারের সংখ্যা।</li>
-                    <li><strong>Item 7:</strong> যারা ভোট দিতে অস্বীকার করেছেন (49-O)।</li>
-                    <li><strong>Item 8:</strong> যাদের ভোট বাতিল করা হয়েছে।</li>
-                    <li><strong>Item 10:</strong> EVM-এ রেকর্ড হওয়া মোট ভোট।</li>
-                  </ul>
-                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                     <h4 className="text-xs font-bold text-amber-800 mb-1 flex items-center gap-1"><Icons.Lightbulb /> 💡 টিপস</h4>
-                     <p className="text-sm text-amber-800">EVM Total (Item 10) সর্বদা = [Item 6] মাইনাস [Item 7] মাইনাস [Item 8] হতে হবে। মিলতে বাধ্য।</p>
-                  </div>
-                </div>
-              )
-            }
+        function FormsGuide({ completedForms, toggleFormTask }) {
+          const formsData = [
+            { id: 'f_17a', name: 'Form 17A (Register of Voters)', purpose: 'ভোটারদের রেকর্ড।', guide: 'প্রতিটি ভোটারের ক্রমিক নং এবং সই/টিপছাপ নিতে হবে।', packing: "Statutory Cover (সবুজ) - তবে এটি 'Scrutiny'র জন্য আলাদা রাখা হয়।", color: 'green' },
+            { id: 'f_17c', name: 'Form 17C (Account of Votes)', purpose: 'ভোটের চূড়ান্ত হিসাব।', guide: '১টি কপি সিল হবে, বাকিগুলো এজেন্টদের দিতে হবে।', packing: 'EVM Papers Cover (সাদা/নীল) - সরাসরি হাতে জমা।', color: 'blue' },
+            { id: 'f_diary', name: 'PrO Diary', purpose: 'বুথের সারাদিনের দিনলিপি।', guide: 'প্রতি ২ ঘণ্টার হিসাব ও বিশেষ ঘটনা লিখতে হবে।', packing: 'Scrutiny Cover (আলাদা বড় খামে হাতে জমা)', color: 'blue' },
+            { id: 'f_marked', name: 'Marked Copy (Electoral Roll)', purpose: 'ভোটার তালিকায় দাগ দেওয়া মূল কপি।', guide: 'সঠিকভাবে পুরুষ/মহিলা/ASD মার্ক করা।', packing: 'Statutory Cover (সবুজ)', color: 'green' },
+            { id: 'f_slips', name: 'Voter Slips', purpose: '৩য় পোলিং অফিসারের সংগ্রহ করা স্লিপগুলো।', guide: 'সিরিয়াল অনুযায়ী শুতোয় গাঁথা।', packing: 'Statutory Cover (সবুজ)', color: 'green' },
+            { id: 'f_17b', name: 'Form 17B (Tendered Votes)', purpose: 'যারা টেন্ডার ব্যালটে ভোট দিয়েছেন তাঁদের তালিকা।', guide: 'সঠিক পরিচয় যাচাই করে এন্ট্রি ও সই।', packing: 'Statutory Cover (সবুজ)', color: 'green' },
+            { id: 'f_14', name: 'Form 14 (Challenged Votes)', purpose: 'চ্যালেঞ্জ ভোটের তালিকা ও ইনকোয়ারি রিপোর্ট।', guide: 'অভিযুক্ত ভোটার ও এজেন্টের সই এবং রিপোর্ট।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' },
+            { id: 'f_14a', name: 'Form 14A (Blind/Infirm)', purpose: 'অন্ধ ও অশক্ত ভোটার এবং তাঁদের সঙ্গীদের তালিকা।', guide: 'ভোটারের নাম এবং তাঁর সঙ্গীর বিবরণ।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' },
+            { id: 'f_10', name: 'Form 10 (Agent Appointment)', purpose: 'পোলিং এজেন্ট নিয়োগের ফর্ম।', guide: 'এজেন্টদের নাম ও সই। অসম্পূর্ণ থাকলে PrO পূরণ করবেন।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' },
+            { id: 'f_decl', name: 'PrO Declaration (Part I-IV)', purpose: 'ভোট শুরু, মক পোল, মেশিন বদল ও ভোট শেষের ঘোষণা।', guide: 'এজেন্টদের সই সহ সঠিক সময়ে ঘোষণা।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' },
+            { id: 'f_asd', name: 'ASD Declaration', purpose: 'ASD তালিকায় থাকা ভোটারদের থেকে নেওয়া ঘোষণা।', guide: 'সঠিক পরিচয় যাচাইয়ের পর ডিক্লারেশন।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' },
+            { id: 'f_underage', name: 'Underage Declaration', purpose: 'কোনো ভোটারের বয়স নিয়ে সন্দেহ হলে তাঁর ডিক্লারেশন।', guide: 'বয়স সম্পর্কে সতর্ক করে সই নেওয়া।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' },
+            { id: 'f_mock', name: 'Mock Poll Certificate', purpose: 'মক পোল সফল হয়েছে তার প্রমাণপত্র (PrO Report-এর অংশ)।', guide: 'কত ভোট পড়ল এবং CRC করা হয়েছে তার ঘোষণা।', packing: 'Special Booklet (সাদা/নীল) - সরাসরি হাতে জমা।', color: 'blue' },
+            { id: 'f_visit', name: 'Visit Sheet', purpose: 'বুথে আসা অফিসারদের সই ও মন্তব্যের কাগজ।', guide: 'SO, Observer এলে সই ও সময় নেওয়া।', packing: 'Scrutiny Cover (হাতে হাতে জমা)', color: 'blue' },
+            { id: 'f_ps05a', name: 'PS-05A (Voter Turnout)', purpose: 'মোট ভোটার উপস্থিতির স্ট্যাটিস্টিকস।', guide: 'মোট পুরুষ, মহিলা ও থার্ড জেন্ডার ভোটারের চূড়ান্ত সংখ্যা।', packing: 'সরাসরি হাতে হাতে জমা', color: 'blue' },
+            { id: 'f_16p', name: '16-Point Report', purpose: 'প্রিসাইডিং অফিসারের অতিরিক্ত তথ্য সম্বলিত রিপোর্ট।', guide: 'বুথের সাধারণ অবস্থা ও বিশেষ রিপোর্টিং।', packing: 'সরাসরি হাতে হাতে জমা', color: 'blue' },
+            { id: 'f_braille', name: 'Braille Ballot Paper Account', purpose: 'ব্রেইল ব্যালটের হিসাব।', guide: 'অন্ধ ভোটারদের ব্রেইল ব্যালট দিলে তার রেকর্ড।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' },
+            { id: 'f_comp', name: 'Declaration by Companion', purpose: 'অন্ধ ভোটারের সঙ্গীর থেকে নেওয়া ডিক্লারেশন।', guide: 'সঙ্গীর সই ও বয়স যাচাই।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' },
+            { id: 'f_receipt', name: 'Receipt Book for Challenge Fee', purpose: 'চ্যালেঞ্জ ভোটের টাকা জমা দেওয়ার রসিদ বই।', guide: 'টাকা জমা নিলে রসিদ দেওয়া।', packing: 'Non-Statutory Cover (হলুদ)', color: 'yellow' }
           ];
 
+          const rowColors = {
+            green: 'bg-green-50 hover:bg-green-100 border-green-200 text-green-900',
+            yellow: 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-900',
+            blue: 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-900'
+          };
+
+          const tagColors = {
+            green: 'bg-green-500 text-white',
+            yellow: 'bg-yellow-500 text-white',
+            blue: 'bg-blue-500 text-white'
+          };
+
           return (
-            <div className="space-y-4">
-              <div className="bg-blue-900 text-white p-4 rounded-2xl shadow-md">
-                <h2 className="text-xl font-bold flex items-center gap-2"><Icons.FileText /> ফর্ম গাইডলাইন</h2>
-                <p className="text-xs text-blue-200 mt-1">কলাম অনুযায়ী তথ্য ও সতর্কতা</p>
+            <div className="space-y-6">
+              <div className="bg-slate-800 text-white p-5 rounded-2xl shadow-md">
+                <h2 className="text-xl font-bold flex items-center gap-2"><Icons.FileText /> নির্বাচন ফর্ম ও প্যাকেট গাইড</h2>
+                <p className="text-xs text-slate-300 mt-1">প্যাকেটের রং অনুযায়ী ফর্ম মেলান ও টিক দিন (ECI Handbook 2023)</p>
               </div>
-              
-              {forms.map(form => (
-                <div key={form.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                  <button 
-                    onClick={() => setOpenId(openId === form.id ? null : form.id)}
-                    className="w-full p-4 flex justify-between items-center text-left bg-slate-50 hover:bg-slate-100 transition-colors"
-                  >
-                    <div>
-                      <h3 className="font-bold text-slate-800 text-lg">{form.title}</h3>
-                      <p className="text-xs font-medium text-slate-500 mt-0.5">{form.desc}</p>
-                    </div>
-                    <div className={`transition-transform duration-300 ${openId === form.id ? 'rotate-90' : ''}`}>
-                      <Icons.ChevronRight />
-                    </div>
-                  </button>
-                  
-                  {openId === form.id && (
-                    <div className="p-4 border-t border-slate-100 bg-white animate-in slide-in-from-top-2">
-                      {form.content}
-                    </div>
-                  )}
+
+              <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm min-w-[700px] border-collapse">
+                    <thead className="bg-slate-800 text-slate-100 font-bold border-b border-slate-700">
+                      <tr>
+                        <th className="p-3 text-center w-12 border-r border-slate-700">✓</th>
+                        <th className="p-3 border-r border-slate-700">ফর্মের নাম</th>
+                        <th className="p-3 border-r border-slate-700">ফর্মের কাজ ও টিপস</th>
+                        <th className="p-3">প্যাকেটের ধরন ও রং</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/40">
+                      {formsData.map((form) => {
+                        const isDone = completedForms[form.id];
+                        return (
+                          <tr key={form.id} 
+                              className={`transition-colors cursor-pointer border-b ${rowColors[form.color]} ${isDone ? 'opacity-50 grayscale' : ''}`}
+                              onClick={() => toggleFormTask(form.id)}>
+                            <td className="p-3 text-center border-r border-black/5">
+                              <div className={`w-6 h-6 mx-auto rounded border-2 flex items-center justify-center transition-all ${isDone ? 'bg-slate-800 border-slate-800 text-white' : 'border-slate-400 bg-white/50'}`}>
+                                {isDone && <Icons.Check />}
+                              </div>
+                            </td>
+                            <td className="p-3 border-r border-black/5 font-bold whitespace-nowrap">
+                              <span className={isDone ? 'line-through' : ''}>{form.name}</span>
+                            </td>
+                            <td className="p-3 border-r border-black/5">
+                              <p className={`font-medium mb-0.5 ${isDone ? 'line-through' : ''}`}>{form.purpose}</p>
+                              <p className="text-xs opacity-80">{form.guide}</p>
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold tracking-wide uppercase shadow-sm ${tagColors[form.color]} ${isDone ? 'opacity-50' : ''}`}>
+                                {form.color === 'green' ? 'সবুজ (Statutory)' : form.color === 'yellow' ? 'হলুদ (Non-Stat)' : 'হাতে জমা / স্ক্রুটিনি'}
+                              </span>
+                              <p className={`text-xs mt-1 font-bold opacity-90 ${isDone ? 'line-through' : ''}`}>{form.packing}</p>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-              <EmergencyHelp />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                 <div className="bg-green-100 text-green-800 p-2 rounded-xl text-center text-[10px] font-bold border border-green-200">🟢 সংবিধিবদ্ধ (Statutory)</div>
+                 <div className="bg-yellow-100 text-yellow-800 p-2 rounded-xl text-center text-[10px] font-bold border border-yellow-200">🟡 অ-সংবিধিবদ্ধ (Non-Stat)</div>
+                 <div className="bg-blue-100 text-blue-800 p-2 rounded-xl text-center text-[10px] font-bold border border-blue-200">🔵 স্ক্রুটিনি / হাতে জমা</div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl shadow-sm mt-4">
+                <h3 className="font-bold text-amber-800 flex items-center gap-2 mb-4 text-lg">
+                  <Icons.Lightbulb /> 💡 কিছু গুরুত্বপূর্ণ নির্দেশিকা
+                </h3>
+                <ul className="space-y-4 text-sm text-amber-900 font-medium">
+                  <li className="flex gap-3 items-start">
+                    <span className="mt-0.5 text-amber-600"><Icons.Check /></span>
+                    <span className="leading-relaxed"><strong>সিলিং নিয়ম:</strong> শুধুমাত্র Form 17C-র ১টি কপি সিল (Seal) হবে। বাকি সমস্ত ফর্ম সংশ্লিষ্ট বড় বা ছোট কভারে ভরে আনসিল্ড (Unsealed) অবস্থায় আরসি-তে নিয়ে যেতে হবে। রিসিভিং সেন্টারের অফিসাররা চেক করার পর আপনার সামনেই সেগুলো সিল করবেন।</span>
+                  </li>
+                  <li className="flex gap-3 items-start">
+                    <span className="mt-0.5 text-amber-600"><Icons.Check /></span>
+                    <span className="leading-relaxed"><strong>বুকলেট নিয়ম:</strong> যদি স্টিচ বুকলেট দেওয়া হয়, তবে কোনো পাতা ছিঁড়বেন plain না। পাতা ফিলাপ না হলে সেখানে একটি আড়াআড়ি পেন দিয়ে দাগ (Cross Line) টেনে দিন।</span>
+                  </li>
+                  <li className="flex gap-3 items-start">
+                    <span className="mt-0.5 text-red-600"><Icons.Alert /></span>
+                    <span className="leading-relaxed"><strong>সতর্কতা:</strong> Form 17C এবং Presiding Officer's Diary আরসি-তে (RC) জমা দেওয়ার সময় সবথেকে আগে চাওয়া হয়। তাই এগুলো সিল করা প্যাকেটের ভেতরে না রেখে আপনার হাতের ব্যাগে বা আলাদা 'Scrutiny Cover'-এ রাখা ভালো যাতে চটজলদি জমা দেওয়া যায়।</span>
+                  </li>
+                </ul>
+              </div>
             </div>
           );
         }
