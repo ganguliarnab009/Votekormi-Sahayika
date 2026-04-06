@@ -14,12 +14,24 @@
     
     <!-- Babel for compiling JSX in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
 </head>
 <body class="bg-slate-50">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         // --- DATA MODELS & CONSTANTS ---
         const STAGES = [
@@ -31,12 +43,12 @@
           { id: 'rc', title: '৬. RC-তে জমা (RC Submit)', short: 'RC জমা' }
         ];
 
-        // --- CHECKLIST DATA WITH MISTAKES AND TIPS ---
+        // --- CHECKLIST DATA ---
         const CHECKLIST_DATA = {
           dc: [
             { id: 'dc_1', role: 'all', text: 'প্রাথমিক কাজ: Decoding List চেক করে নিজের Polling Station (PS) নম্বর ও নির্দিষ্ট Counter খুঁজে বের করা।' },
             { id: 'dc_2', role: 'all', text: 'উপস্থিতি (Attendance): টিমের ৪ জন (PrO, P1, P2, P3) একসাথে রিপোর্ট করে Attendance দেওয়া।' },
-            { id: 'dc_3', role: 'pro', text: 'SMS ও SO Contact: PrO ও P1-এর মোবাইল থেকে Registration SMS পাঠানো এবং Sector Officer-এর নম্বর Save করা।' },
+            { id: 'dc_3', role: 'pro', text: 'SMS ও SO Contact: PrO ও P1-এর মোবাইল থেকে Registration SMS পাঠানো এবং Sector Officer-এর নম্বর Save করা।', actionTab: 'sms' },
             { id: 'dc_4', role: 'all', text: 'Postal Ballot / EDC: আগে আবেদন করা থাকলে Postal Ballot ভোট দেওয়া বা Election Duty Certificate (EDC) সংগ্রহ করা।' },
             { id: 'dc_5', role: 'pro', text: 'EVM/VVPAT ট্যাগ: CU, BU ও VVPAT আপনার PS-এর জন্যই কিনা Address Tag দেখে মিলিয়ে নেওয়া। তিনটি ইউনিটের Address Tag অক্ষত কিনা চেক করা।' },
             { id: 'dc_6', role: 'pro', text: 'CU চেক: Candidate Set Section-এর সিল এবং Pink Paper Seal অক্ষত (intact) আছে কিনা দেখা। Power Switch ON করে Battery ও Date/Time চেক করে সঙ্গে সঙ্গে OFF করা।', critical: true, mistake: 'মেশিন ON অবস্থায় রেখে দেওয়া বা তার লাগানো।', tip: 'কেবলমাত্র ব্যাটারি পার্সেন্টেজ দেখেই মেশিন বন্ধ করে দিন।' },
@@ -51,55 +63,102 @@
             { id: 'dc_15', role: 'all', text: 'Stationary ও ফর্ম: Statutory ও Non-statutory forms, 17C, PrO Diary, Cello Tape (Transparent), Black Envelope (Mock Poll-এর জন্য) চেক করা।' },
             { id: 'dc_16', role: 'p3', text: 'Voting Compartment: কার্ডবোর্ড ও বাঁধার জন্য সুতো মিলিয়ে নেওয়া।' },
             { id: 'dc_17', role: 'pro', text: 'DC-তে বসেই সমস্ত Seal-এ (17A বাদে) Distinguishing Mark ও PrO-এর সই করে রাখুন। PrO Diary-তে মেটেরিয়াল সংগ্রহের সময় লিখে রাখুন।' },
-            { id: 'dc_18', role: 'all', text: 'রওনা দেওয়া: মেটেরিয়াল Annexure-3 অনুযায়ী মেলানোর পর গাড়ি লোড করা, লাঞ্চ প্যাক নেওয়া। বুথে পৌঁছে প্রথম কাজ "Safe Arrival" SMS পাঠানো।' }
+            { id: 'dc_18', role: 'all', text: 'রওনা দেওয়া: মেটেরিয়াল Annexure-3 অনুযায়ী মেলানোর পর গাড়ি লোড করা, লাঞ্চ প্যাক নেওয়া। বুথে পৌঁছে প্রথম কাজ "Safe Arrival" SMS পাঠানো।', actionTab: 'sms' }
           ],
           setup: [
-            { id: 'set_1', role: 'all', text: 'পৌঁছানো ও SMS: পোল-এর আগের দিন (P-1) বুথে পৌঁছে "Safe Arrival" SMS (WB EL <AC> P <Stn>) পাঠানো।' },
+            { id: 'set_1', role: 'all', text: 'পৌঁছানো ও SMS: পোল-এর আগের দিন (P-1) বুথে পৌঁছে "Safe Arrival" SMS (WB EL <AC> P <Stn>) পাঠানো।', actionTab: 'sms' },
             { id: 'set_2', role: 'pro', text: 'EVM/VVPAT বক্স খুলবেন না: কোনো অবস্থাতেই আজকে EVM/VVPAT বক্স খুলবেন না (শুধু পরের দিন মক পোলের সময় খুলবেন)।', critical: true, mistake: 'P-1 দিনেই EVM বা VVPAT বক্স খুলে ফেলা।' },
             { id: 'set_3', role: 'all', text: 'পরিকাঠামো ও সিসিটিভি: বিদ্যুৎ, জল, শৌচাগার চেক করা এবং CCTV/Webcam থাকলে তা চালু করে SMS পাঠানো ও স্ট্যাটাস চেক করা।' },
             { id: 'set_4', role: 'pro', text: 'যোগাযোগ ও সতর্কতা: CAPF/পুলিশ ও রান্নার লোকের সাথে সমন্বয় করা। স্থানীয় লোকের থেকে কোনো খাবার বা সুবিধা গ্রহণ না করা।' },
             { id: 'set_5', role: 'pro', text: 'Voting Compartment: গোপনীয়তা পুরোপুরি নিশ্চিত করা, জানালা/দরজার পাশে না রাখা। ঠিক উপরে বা সামনে হাই ওয়াটেজ বাল্ব (High wattage bulb) না রাখা।' },
             { id: 'set_6', role: 'p3', text: 'পোস্টার লাগানো: Form 7A, Notice 49-O, এরিয়া লিমিটেশন এবং "How to Cast Vote" নোটিশ বুথের বাইরে ও ভিতরে লাগানো।' },
             { id: 'set_7', role: 'pro', text: 'বুথ সাজানো: অফিসার ও এজেন্টদের বসার জায়গা ঠিক করা, পুরুষ/মহিলাদের আলাদা লাইন এবং "ধূমপান নিষেধ" নোটিশ লাগানো।' },
-            { id: 'set_8', role: 'p3', text: 'মেশিন প্লেসমেন্ট ও কেবল: মেশিন নির্দিষ্ট জায়গায় রাখা (কানেক্ট না করে) এবং Transparent Cello Tape দিয়ে তারগুলো টেবিলের পায়ায় আটকানোর প্রস্তুতি নেওয়া।' },
+            { id: 'set_8', role: 'p3', text: 'মেশিন প্লেসমেন্ট ও কেবল: মেশিন নির্দিষ্ট জায়গায় রাখা (কানেক্ট না করে) এবং Transparent Cello Tape দিয়ে তারগুলো টেবিলের পায়ায় আটকানোর প্রস্তুতি নেওয়া।' },
             { id: 'set_9', role: 'pro', text: 'ডকুমেন্টেশন: Form 17A বাদে সমস্ত ফর্ম, এনভেলপ ও স্লিপে Distinguishing Mark এবং PrO সই করে রাখা।' },
             { id: 'set_10', role: 'p1', text: 'P1 ডিউটি: ভোটার লিস্টের Marked Copy ভালো করে চেক করা এবং ASD লিস্ট পড়ে নেওয়া।' },
             { id: 'set_11', role: 'p2', text: 'P2 ডিউটি: Form 17A Register-এর উপর PS ও AC নম্বর লেখা, ভোটার স্লিপ আলাদা করা এবং Indelible Ink চেক করা।' },
-            { id: 'set_12', role: 'pro', text: 'এজেন্ট চেকিং: পোলিং এজেন্টদের Entry Pass ও Appointment Letter চেক করা এবং Specimen Signature sheet রেডি রাখা।' }
+            { id: 'set_12', role: 'pro', text: 'এজেন্ট চেকিং ও পাস ইস্যু: পোলিং এজেন্টদের Entry Pass ও Appointment Letter (Form-10) চেক করুন এবং পাস ইস্যু করুন।',
+              details: [
+                'এজেন্টদের ফর্ম-১০ নিন এবং স্পেসিমেন সিগনেচার শিট থেকে সই মেলান।',
+                'এজেন্টকে দিয়ে ফর্মের দুটি জায়গায় সই করান এবং নিজে সই করে ডেট ও ডিস্টিংগুইশিং মার্ক দিন।',
+                'এজেন্ট মুভমেন্ট শিটে সই করান।',
+                'দল পিছু একটি করেই এজেন্ট পাস ইস্যু করুন। রিলিভার এজেন্টদের বাইরে যেতে বলুন।'
+              ]
+            }
           ],
           mock: [
-            { id: 'mock_1', role: 'pro', text: 'শুরুর সময়: সকাল ৫:৩০ মিনিটে শুরু করা (পোলিং এজেন্ট না থাকলে সর্বোচ্চ ১৫ মিনিট অপেক্ষা করে শুরু করা)।' },
-            { id: 'mock_2', role: 'pro', text: 'ক্লিয়ার প্রদর্শন: এজেন্টদের সামনে CU-তে "Clear" বোতাম টিপে দেখানো যে সব প্রার্থীর ভোট ০ (Zero) আছে।' },
+            { id: 'mock_1', role: 'pro', text: 'শুরুর সময় ও এজেন্টদের উপস্থিতি: বুথের বাইরে গিয়ে উচ্চস্বরে মক পোল শুরুর ঘোষণা করুন।',
+              details: [
+                '২ বা তার বেশি এজেন্ট এসে গেলে ৫:৩০-এ মকপোল শুরু করুন, নাহলে ৫:৪৫ পর্যন্ত অপেক্ষা করুন।',
+                '৫:৪৫-এ কোনো এজেন্ট না এলে বাইরের লাইন থেকে ৩ জন সাধারণ ভোটারকে ডেকে আনুন এবং তাদের উপস্থিতিতে মকপোল করুন।',
+                'পেপার সিল ও ট্যাগে এজেন্টদের সই করার জায়গায় ওই ভোটারদের সই নিন (ব্র্যাকেটে সিরিয়াল নং লিখে দিন)। তবে কোনো ফর্মে সই নেবেন না।'
+              ]
+            },
+            { id: 'mock_2', role: 'pro', text: 'মকপোল এর সময় অফিসারদের দায়িত্ব ভাগ ও প্রস্তুতি:',
+              details: [
+                'PrO: ট্যালি শিট মার্ক করবেন।',
+                'PO-1: BU-এর সুইচ লক্ষ্য রাখবেন।',
+                'PO-2: VVPAT-এর ডিসপ্লে লক্ষ্য রাখবেন।',
+                'PO-3: VVPAT এর ড্রপ বক্স থেকে স্লিপ বের করবেন, পিছনে স্ট্যাম্প দেবেন ও কালো কভারে ভরবেন।'
+              ]
+            },
             { id: 'mock_3', role: 'all', text: 'VVPAT ড্রপ বক্স: এজেন্টদের VVPAT-এর ড্রপ বক্স খুলে দেখানো যে সেটি সম্পূর্ণ ফাঁকা।', tip: 'এজেন্টদের দেখিয়ে নেওয়ার পর তবেই কানেকশন শুরু করুন।' },
             { id: 'mock_4', role: 'pro', text: 'মেশিন নম্বর: CU, BU ও VVPAT-এর সিরিয়াল নম্বর এজেন্টদের দেখানো এবং PrO Diary-তে নোট করা।' },
             { id: 'mock_5', role: 'pro', text: 'VVPAT আনলক: পিছনের কালো নব (Knob) Horizontal (Transport Mode) থেকে ঘুরিয়ে Vertical (Working Mode) করা।', critical: true },
             { id: 'mock_6', role: 'pro', text: 'EVM কানেকশন: CU OFF রেখে BU → VVPAT → CU কানেক্ট করা। তারপর CU ON করলে VVPAT থেকে ৭টি Test Slip বের হবে।', critical: true, mistake: 'CU ON থাকা অবস্থায় তার কানেক্ট করা।' },
-            { id: 'mock_7', role: 'p3', text: 'মক ভোটদান: অন্তত ৫০টি মক ভোট দেওয়া (প্রতিটি Candidate ও NOTA-তে অন্তত ১টি করে ভোট পড়া বাধ্যতামূলক)।' },
-            { id: 'mock_8', role: 'p1', text: 'ম্যানুয়াল রেকর্ড: মক ভোটের সময় Tally Sheet-এ ম্যানুয়াল রেকর্ড রাখা এবং VVPAT স্লিপের সাথে CU Result মেলানো।' },
-            { id: 'mock_9', role: 'pro', text: 'CRC (Close-Result-Clear): Close বোতাম টেপা → Result টিপে রেজাল্ট মেলানো → Clear বোতাম টেপা এবং নিশ্চিত করা যে TOTAL = 0।', critical: true, mistake: 'মক পোল শেষে Clear বোতাম না টিপেই সীল করে দেওয়া (এতে মক ভোট আসল ভোটে যোগ হয়ে যাবে)।' },
+            { id: 'mock_7', role: 'p3', text: 'মক ভোটদান শুরু করুন: অন্তত ৫০টি মক ভোট দেওয়া (প্রতিটি Candidate ও NOTA-তে অন্তত ১টি করে ভোট পড়া বাধ্যতামূলক)।',
+              details: [
+                'এজেন্টদের সাথে আলোচনা করে স্থির করুন কোন প্রার্থীকে কটি ভোট দেবেন (মোট ৫০ এর অধিক)।',
+                'এক একজন প্রার্থীর ভোট টানা দিতে বলবেন এবং এজেন্টদের VVPAT ডিসপ্লে লক্ষ্য রাখতে বলবেন।'
+              ]
+            },
+            { id: 'mock_9', role: 'pro', text: 'CRC (Close-Result-Clear): Close বোতাম টেপা → Result টিপে রেজাল্ট মেলানো → Clear বোতাম টেপা এবং নিশ্চিত করা যে TOTAL = 0। এরপর মক পোল সম্পন্ন হওয়ার SMS পাঠান।', critical: true, mistake: 'মক পোল শেষে Clear বোতাম না টিপেই সীল করে দেওয়া (এতে মক ভোট আসল ভোটে যোগ হয়ে যাবে)।', actionTab: 'sms' },
             { id: 'mock_10', role: 'all', text: 'সার্টিফিকেট: Mock Poll Certificate (PrO Report Part-I, Annexure-5) পূরণ করে এজেন্টদের সই নেওয়া।' },
-            { id: 'mock_11', role: 'pro', text: 'সিলিং ১ (স্লিপ): সব VVPAT স্লিপের পিছনে "Mock Poll Slip" স্ট্যাম্প মেরে Black Envelope-এ ভরা এবং Pink Paper Seal ও গালা দিয়ে সিল করা।' },
-            { id: 'mock_12', role: 'pro', text: 'সিলিং ২ (CU): CU Switch OFF করে Green Paper Seal, Special Tag ও Address Tag দিয়ে সিল করা।' },
-            { id: 'mock_13', role: 'pro', text: 'সিলিং ৩ (VVPAT): VVPAT-এর Drop Box (Slip Compartment) ২টি Address Tag ও গালা দিয়ে সিল করা।' }
+            { id: 'mock_12', role: 'pro', text: 'মেশিনগুলি ও কালো কভার সিল করুন: CU এবং VVPAT সিলিং প্রক্রিয়া সম্পন্ন করুন।',
+              critical: true,
+              details: [
+                'এজেন্টদের দিয়ে পেপার সিল ও ট্যাগে আগে থেকে সই করিয়ে নিন এবং সিলের নম্বর নোট করতে বলুন।',
+                'রেজাল্ট সেকশনের ইনার কভারে গ্রিন পেপার সিল ঢুকিয়ে ঢাকনা বন্ধ করুন। ঢাকনার ছিদ্রে সুতো বেঁধে স্পেশাল অ্যাড্রেস ট্যাগ দিয়ে গালা সিল করুন।',
+                'আউটার কভার বন্ধ করে ছিদ্রে সুতো বেঁধে অ্যাড্রেস ট্যাগ দিয়ে গালা সিল করুন।',
+                'গ্রিন পেপার সিলের আঠা উন্মুক্ত করে এমনভাবে চিটিয়ে দিন যাতে সিলের নম্বর দৃশ্যমান হয়।',
+                'VVPAT এর ড্রপ বক্সের দুটি ছিদ্র সুতো দিয়ে বেঁধে অ্যাড্রেস ট্যাগ দিয়ে গালা সিল করুন।',
+                'কালো কভার (মক পোল স্লিপ) গালা সিল করে পিঙ্ক পেপার দিয়ে সিল করুন।'
+              ]
+            },
+            { id: 'mock_14', role: 'pro', text: 'সংশ্লিষ্ট ফর্মে এজেন্টদের সই নিন ও দায়িত্ব বোঝান:',
+              details: [
+                'PrO রিপোর্ট পার্ট-১, ডিক্লারেশন পার্ট-১ এবং অ্যাকাউন্ট অফ এজেন্ট পাস ফিলাপ করে এজেন্টদের সই করান।',
+                'ফর্ম-১৭এ ও ইলেক্টোরল রোলের মার্কড কপি এজেন্টদের দেখান (বিশেষ করে PB, EDC, PV, Deleted মার্কগুলো)।',
+                'ASD লিস্ট দেখিয়ে মার্কড কপির সিরিয়ালগুলোতে পেন্সিলে দাগ দিন। ফাঁকা টেন্ডার ব্যালটগুলি দেখান।',
+                'ভোটারের গোপনীয়তা ও শনাক্তকরণ সম্পর্কে এজেন্টদের সচেতন করুন।'
+              ]
+            }
           ],
           live: [
+            { id: 'live_0', role: 'pro', text: 'মেশিনগুলি স্থাপন করে ভোট শুরু করুন:',
+              details: [
+                'মেশিনগুলিকে এবার প্রকৃত অবস্থানে (Voting Compartment) রাখুন।',
+                'CU এর তার সংযুক্ত করে সুইচ অন করুন। সমস্ত তার ভালো করে টেপ দিয়ে টেবিলের পায়ায় আটকান।',
+                'প্রত্যেক PO নিজের জিনিসপত্র নিয়ে নির্দিষ্ট স্থানে বসুন।'
+              ]
+            },
             { id: 'live_1', role: 'pro', text: 'জিরো চেক (Zero Check): ভোট শুরুর আগে CU-তে "Total" বাটন টিপে এজেন্টদের দেখান যে ভোট ০ (Zero) আছে।', critical: true },
             { id: 'live_2', role: 'p1', text: 'জিরো সার্টিফিকেট: প্রথম ভোটারের সইয়ের আগে PrO ও P1 মিলে Form 17A-তে লিখুন "Total in the Control Unit is checked and found to be Zero" এবং সই করুন।', critical: true, mistake: 'ভোটগ্রহণ শুরু হয়ে যাওয়ার পর বা মাঝে এই কথাটি লেখা।' },
             { id: 'live_3', role: 'pro', text: 'গোপনীয়তা ও ঘোষণা: এজেন্টদের RP Act-এর Section 128 (গোপনীয়তা) পড়ে শোনান। Declaration of Poll জোরে পড়ে এজেন্টদের সই নিন (Annexure-6)।' },
-            { id: 'live_4', role: 'pro', text: 'ভোট শুরু: ঠিক সকাল ৭:০০ টায় ভোট শুরু করুন এবং ভোট শুরুর SMS পাঠান।' },
+            { id: 'live_4', role: 'pro', text: 'ভোট শুরু: ঠিক সকাল ৭:০০ টায় ভোট শুরু করুন এবং ভোট শুরুর SMS (START) পাঠান।', actionTab: 'sms' },
             { id: 'live_5', role: 'p1', text: 'P1 ডিউটি: EPIC/ID যাচাই করুন। Marked Copy-তে লাল কালিতে Male=Slant Line, Female=Circle+Slant Line, Third Gender=Star মার্ক করুন। ভোটারের নাম ও সিরিয়াল জোরে পড়ুন।', mistake: 'ASD লিস্ট চেক না করে ভোট দেওয়া বা নাম জোরে না পড়া।' },
             { id: 'live_6', role: 'p2', text: 'P2 ডিউটি: বাঁ হাতের তর্জনী চেক করে কালি লাগান। কালি শুকানোর জন্য অপেক্ষা করুন। 17A-তে এন্ট্রি (সিরিয়াল, ID-র শেষ ৪ সংখ্যা, সই/টিপসই) নিন। Voter Slip ইস্যু করুন।', mistake: 'ভুল আঙুলে কালি লাগানো বা ভোটারের সই/টিপসই না নেওয়া।', tip: 'কালি লাগানোর পর ৫ সেকেন্ড শুকাতে দিন।' },
             { id: 'live_7', role: 'p3', text: 'P3 ডিউটি: Voter Slip নিয়ে শুতোয় গাঁথুন, আঙুলে কালি চেক করুন, CU-তে "Ballot" বাটন টিপুন এবং "Busy" ল্যাম্প ও প্রতি ভোটে "Beep" শব্দ মনিটর করুন।' },
             { id: 'live_8', role: 'all', text: 'VVPAT মনিটরিং: ভোটার Voting Compartment-এ গিয়ে বোতাম চাপলে VVPAT-এ ৭ সেকেন্ড স্লিপ দেখা যাচ্ছে কিনা তা সর্বদা লক্ষ্য রাখুন।' },
-            { id: 'live_9', role: 'pro', text: 'রিপোর্টিং ও ট্যালি: সকাল ৯, ১১, ১, ৩ ও ৫টায় Cumulative ভোটের SMS (SO-এর মাধ্যমে RO-কে) পাঠান। প্রতি ঘণ্টায় 17A-এর সিরিয়ালের সাথে CU-এর Total মেলান।' },
+            { id: 'live_9', role: 'pro', text: 'রিপোর্টিং ও ট্যালি: সকাল ৯, ১১, ১, ৩ ও ৫টায় Cumulative ভোটের SMS (SO-এর মাধ্যমে RO-কে) পাঠান। প্রতি ঘণ্টায় 17A-এর সিরিয়ালের সাথে CU-এর Total মেলান।', actionTab: 'sms' },
             { id: 'live_10', role: 'pro', text: 'PrO Diary: PrO Diary-তে প্রতি ঘণ্টায় বা ঘটনা অনুযায়ী (Events/Complaints) এন্ট্রি করুন।' },
             { id: 'live_11', role: 'pro', text: 'বিশেষ পরিস্থিতি: 49-O (ভোট দানে অস্বীকৃতি), Proxy, Challenged বা Test Vote (49MA)-এর ক্ষেত্রে সঠিক নিয়ম মানুন। সন্দেহ হলে ১-২ জন এজেন্টকে নিয়ে PrO ভোটিং কম্পার্টমেন্ট চেক করতে পারেন।' },
             { id: 'live_12', role: 'pro', text: 'সতর্কতা: ভোট চলাকালীন কোনো অবস্থাতেই মেশিন OFF বা কেবল খোলা যাবে না। কেবল ত্রুটি হলে SO-কে জানাতে হবে।', critical: true, mistake: 'ভোট চলাকালীন মেশিন OFF করে দেওয়া বা কেবল খোলা।' }
           ],
           closing: [
             { id: 'clos_1', role: 'pro', text: 'ঘোষণা: ভোট শেষের ১৫ মিনিট আগে (বিকেল ৫:৪৫) জোরে ঘোষণা করুন যে পোল ক্লোজিং-এর সময় আসছে।' },
-            { id: 'clos_2', role: 'pro', text: 'কিউ স্লিপ (Queue Slip): ঠিক ৬টায় লাইনের একেবারে শেষ ভোটারকে "১ নম্বর" Queue Slip (PrO সই সহ) দিন এবং ক্রমান্বয়ে সামনের দিকে বিলি করুন। ৬টার পর কাউকে লাইনে দাঁড়াতে দেবেন না।' },
-            { id: 'clos_3', role: 'pro', text: 'ক্লোজ বাটন (Close Button): শেষ ভোটারের ভোটদান সম্পূর্ণ হলে CU-এর Safety Cover সরিয়ে CLOSE বোতাম টিপুন এবং "Poll Closed" লেখা পর্যন্ত অপেক্ষা করুন।', critical: true, mistake: 'লাইনে লোক থাকা অবস্থাতেই ভুল করে Close বোতাম টিপে দেওয়া।' },
+            { id: 'clos_2', role: 'pro', text: 'কিউ স্লিপ (Queue Slip): ঠিক ৬টায় লাইনের একেবারে শেষ ভোটারকে "১ নম্বর" Queue Slip (PrO সই সহ) দিন এবং ক্রমান্বয়ে সামনের দিকে বিলি করুন। লাইনের ভোটারের সংখ্যা SMS করে পাঠান। ৬টার পর কাউকে লাইনে দাঁড়াতে দেবেন না।', actionTab: 'sms' },
+            { id: 'clos_3', role: 'pro', text: 'ক্লোজ বাটন (Close Button): শেষ ভোটারের ভোটদান সম্পূর্ণ হলে CU-এর Safety Cover সরিয়ে CLOSE বোতাম টিপুন এবং "Poll Closed" লেখা পর্যন্ত অপেক্ষা করুন। ভোট সমাপ্তির SMS পাঠান।', critical: true, mistake: 'লাইনে লোক থাকা অবস্থাতেই ভুল করে Close বোতাম টিপে দেওয়া।', actionTab: 'sms' },
             { id: 'clos_4', role: 'p2', text: '17A সমাপ্তি: Form 17A-র শেষ এন্ট্রির নিচে লাল কালি দিয়ে লম্বা দাগ টেনে তারিখ, সময় ও "The voting is closed" লিখে PrO এবং P2 সই করুন।' },
             { id: 'clos_5', role: 'pro', text: 'মেশিন OFF ও ব্যাটারি: CU Switch OFF করুন। VVPAT Power Pack (Battery) এজেন্টদের সামনে খুলে আলাদা কভারে ভরে রাখুন। মেশিনের ভিতর রাখবেন না।', critical: true, mistake: 'প্যাকিংয়ের সময় VVPAT ব্যাটারি মেশিনের ভিতরেই রেখে দেওয়া (এতে মেশিন খারাপ হতে পারে)।' },
             { id: 'clos_6', role: 'all', text: 'কেবল খোলা ও প্যাকিং: সমস্ত কেবল সাবধানে খুলুন। VVPAT Knob-কে Horizontal (Transport) মোডে ঘোরান। তিনটি ইউনিট Carrying Case-এ ভরে Address Tag (এজেন্টদের সইসহ) ও গালা দিয়ে সিল করুন।' },
@@ -112,13 +171,13 @@
             { id: 'rc_1', role: 'pro', text: 'রওনা হওয়ার আগে চেক: সমস্ত মেশিন (CU, BU, VVPAT) এবং প্যাকেট (সবুজ, হলুদ খাম ও Special Booklet) সঠিকভাবে এজেন্টদের সইসহ সিল করা আছে কিনা নিশ্চিত করুন।' },
             { id: 'rc_2', role: 'pro', text: 'VVPAT ব্যাটারি: VVPAT Power Pack মেশিনের ভিতরে নেই এবং আলাদা কভারে আছে কিনা তা পুনরায় চেক করুন।', critical: true },
             { id: 'rc_3', role: 'pro', text: 'মুভমেন্ট: Security Convoy-এর সাথে যোগাযোগ করুন এবং তাদের সাথেই RC-এর উদ্দেশ্যে রওনা দিন (একা যাবেন না)।', critical: true },
-            { id: 'rc_4', role: 'all', text: 'RC পৌঁছানো: RC-এ পৌঁছোনোর পর নির্দিষ্ট কাউন্টার খুঁজে বের করুন এবং নির্দেশ থাকলে "Safe Arrival at RC" SMS পাঠান।' },
+            { id: 'rc_4', role: 'all', text: 'RC পৌঁছানো: RC-এ পৌঁছোনোর পর নির্দিষ্ট কাউন্টার খুঁজে বের করুন এবং নির্দেশ থাকলে "Safe Arrival at RC" SMS পাঠান।', actionTab: 'sms' },
             { id: 'rc_5', role: 'pro', text: 'মেশিন জমা (PrO): CU, BU, VVPAT-এর সিলড কেস এবং Special Booklet সরাসরি কাউন্টারে জমা দিন।' },
             { id: 'rc_6', role: 'p1', text: 'প্যাকেট ১ জমা (P1): Statutory Cover (সবুজ খাম) - Form 17C, 17A Register, Marked Copy, Voter Slips কাউন্টারে জমা দিন।' },
             { id: 'rc_7', role: 'p2', text: 'প্যাকেট ২ জমা (P2): Non-Statutory Cover (হলুদ খাম) - PrO Diary, Form 14/14A, Agent Movement Sheet জমা দিন।' },
             { id: 'rc_8', role: 'p3', text: 'অন্যান্য জমা (P3): Metal Seal, Arrow Cross Mark Stamp এবং অন্যান্য জিনিসপত্র জমা দিন।' },
             { id: 'rc_9', role: 'pro', text: 'M21 রসিদ: সমস্ত জিনিসপত্র জমার পর RC অফিসারের কাছ থেকে "FORM M21 - Receipt" (প্রাপ্তির রসিদ) অবশ্যই সংগ্রহ করুন। রসিদ ছাড়া ফিরবেন না!', critical: true, mistake: 'RC-তে জমা দেওয়ার পর M21 রসিদ না নিয়েই চলে আসা।' },
-            { id: 'rc_10', role: 'all', text: 'ডিউটি সমাপ্ত: RC-এর কাজ শেষে বাড়ি ফিরে "Safe Arrival" SMS করুন এবং বিশ্রাম নিন।' }
+            { id: 'rc_10', role: 'all', text: 'ডিউটি সমাপ্ত: RC-এর কাজ শেষে বাড়ি ফিরে বিশ্রাম নিন।' }
           ]
         };
 
@@ -129,6 +188,7 @@
           FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
           Alert: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
           ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>,
+          ChevronDown: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
           User: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
           Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
           XCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
@@ -136,38 +196,102 @@
           Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
           Minus: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>,
           Save: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
-          Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+          Message: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+          Send: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+          Edit: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+          BookOpen: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+          Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         };
 
         function App() {
+          const [userInfo, setUserInfo] = useState({ name: '', role: 'pro', acNumber: '', booth: '', smsNumber: '56070' });
           const [activeTab, setActiveTab] = useState('home');
           const [completedTasks, setCompletedTasks] = useState({});
           const [currentStageId, setCurrentStageId] = useState('dc');
+          
+          // EVM Main Tally
           const [tally, setTally] = useState({ male: 0, female: 0, tg: 0 });
+          // Special Votes Tally
+          const [specialVotes, setSpecialVotes] = useState({ tendered: 0, challenged: 0, test: 0, asd: 0, proxy: 0, blind: 0 });
+          // Test Vote Log for 17C
+          const [testVoteText, setTestVoteText] = useState("");
+
           const [tallyReports, setTallyReports] = useState([]); 
           const [completedForms, setCompletedForms] = useState({}); 
 
+          const tallyRef = useRef(tally);
           useEffect(() => {
+            tallyRef.current = tally;
+          }, [tally]);
+
+          // Load on mount
+          useEffect(() => {
+            const savedUser = localStorage.getItem('poll_userInfo');
             const savedTasks = localStorage.getItem('poll_tasks');
             const savedStage = localStorage.getItem('poll_stage');
             const savedTally = localStorage.getItem('poll_tally');
+            const savedSpecial = localStorage.getItem('poll_special');
+            const savedTestText = localStorage.getItem('poll_test_text');
             const savedReports = localStorage.getItem('poll_reports');
             const savedForms = localStorage.getItem('poll_forms');
 
+            if (savedUser) setUserInfo(JSON.parse(savedUser));
             if (savedTasks) setCompletedTasks(JSON.parse(savedTasks));
             if (savedStage) setCurrentStageId(savedStage);
             if (savedTally) setTally(JSON.parse(savedTally));
+            if (savedSpecial) setSpecialVotes(JSON.parse(savedSpecial));
+            if (savedTestText) setTestVoteText(savedTestText);
             if (savedReports) setTallyReports(JSON.parse(savedReports));
             if (savedForms) setCompletedForms(JSON.parse(savedForms));
           }, []);
 
+          // Save on change
           useEffect(() => {
+            localStorage.setItem('poll_userInfo', JSON.stringify(userInfo));
             localStorage.setItem('poll_tasks', JSON.stringify(completedTasks));
             localStorage.setItem('poll_stage', currentStageId);
             localStorage.setItem('poll_tally', JSON.stringify(tally));
+            localStorage.setItem('poll_special', JSON.stringify(specialVotes));
+            localStorage.setItem('poll_test_text', testVoteText);
             localStorage.setItem('poll_reports', JSON.stringify(tallyReports));
             localStorage.setItem('poll_forms', JSON.stringify(completedForms)); 
-          }, [completedTasks, currentStageId, tally, tallyReports, completedForms]);
+          }, [userInfo, completedTasks, currentStageId, tally, specialVotes, testVoteText, tallyReports, completedForms]);
+
+          // --- AUTO-SAVE 2-HOURLY REPORTS LOGIC ---
+          useEffect(() => {
+            const interval = setInterval(() => {
+              const now = new Date();
+              const h = now.getHours();
+              const m = now.getMinutes();
+              
+              const slots = {
+                9: '9 AM', 11: '11 AM', 13: '1 PM', 15: '3 PM', 17: '5 PM', 18: '6 PM (Final)'
+              };
+
+              if (slots[h] && m >= 0 && m <= 5) {
+                setTallyReports(prev => {
+                  const label = slots[h];
+                  if (prev.some(r => r.timeLabel === label)) return prev;
+
+                  const currentTally = tallyRef.current;
+                  const total = currentTally.male + currentTally.female + currentTally.tg;
+
+                  const newReport = {
+                    id: Date.now(),
+                    timeLabel: label,
+                    total: total,
+                    male: currentTally.male,
+                    female: currentTally.female,
+                    tg: currentTally.tg,
+                    timestamp: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) + ' (Auto)'
+                  };
+                  return [...prev, newReport];
+                });
+              }
+            }, 30000); 
+            return () => clearInterval(interval);
+          }, []);
 
           const toggleTask = (taskId) => {
             setCompletedTasks(prev => ({
@@ -186,9 +310,12 @@
           const clearAllData = () => {
             if(window.confirm("সতর্কতা: আপনি কি অ্যাপের সমস্ত ডেটা মুছে ফেলতে চান? এটি আর ফিরিয়ে আনা যাবে না।")) {
               localStorage.clear();
+              setUserInfo({ name: '', role: 'pro', acNumber: '', booth: '', smsNumber: '56070' });
               setCompletedTasks({});
               setCurrentStageId('dc');
               setTally({ male: 0, female: 0, tg: 0 });
+              setSpecialVotes({ tendered: 0, challenged: 0, test: 0, asd: 0, proxy: 0, blind: 0 });
+              setTestVoteText("");
               setTallyReports([]);
               setCompletedForms({});
               setActiveTab('home');
@@ -200,24 +327,26 @@
 
           return (
             <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-800">
-              <header className="bg-blue-800 text-white p-4 shadow-md flex justify-between items-center shrink-0">
+              <header className="bg-blue-800 text-white p-4 shadow-md flex justify-between items-center shrink-0 z-10">
                 <div>
                   <h1 className="font-bold text-xl leading-tight tracking-tight">ভোটকর্মী সহায়িকা</h1>
-                  <p className="text-xs text-blue-200 mt-0.5">Election Duty 2026</p>
+                  {userInfo.booth ? (
+                    <p className="text-xs text-blue-200 mt-0.5">বুথ {userInfo.booth} • AC {userInfo.acNumber}</p>
+                  ) : (
+                    <p className="text-xs text-blue-200 mt-0.5">Election Duty 2026</p>
+                  )}
                 </div>
                 <div className="bg-blue-900 px-3 py-1.5 rounded-lg border border-blue-700 text-center shadow-inner">
-                  <p className="text-[10px] text-blue-300 uppercase tracking-wider font-bold">Total Votes</p>
+                  <p className="text-[10px] text-blue-300 uppercase tracking-wider font-bold">Total EVM Votes</p>
                   <p className="font-black text-lg leading-none mt-0.5">{totalVotes}</p>
                 </div>
               </header>
 
-              <div className="bg-blue-900 text-xs text-blue-100 px-4 py-2 flex justify-between items-center shadow-inner border-t border-blue-950">
-                <span>বর্তমান পর্ব: <strong>{STAGES.find(s => s.id === currentStageId)?.title}</strong></span>
-              </div>
-
-              <main className="flex-1 overflow-y-auto p-4 pb-28">
+              <main className="flex-1 overflow-y-auto pb-24">
                 {activeTab === 'home' && (
                   <Dashboard 
+                    userInfo={userInfo}
+                    setUserInfo={setUserInfo}
                     currentStageId={currentStageId} 
                     setCurrentStageId={setCurrentStageId}
                     completedTasks={completedTasks}
@@ -225,15 +354,14 @@
                     clearAllData={clearAllData}
                   />
                 )}
-                {activeTab === 'myrole' && (
-                  <RoleGuide />
-                )}
+                {activeTab === 'myrole' && <RoleGuide defaultRole={getRoleKey(userInfo.role)} />}
                 {activeTab === 'checklist' && (
                   <ChecklistView 
                     currentStageId={currentStageId} 
                     setCurrentStageId={setCurrentStageId}
                     completedTasks={completedTasks}
                     toggleTask={toggleTask}
+                    setActiveTab={setActiveTab}
                   />
                 )}
                 {activeTab === 'tally' && (
@@ -243,40 +371,109 @@
                     totalVotes={totalVotes}
                     tallyReports={tallyReports}
                     setTallyReports={setTallyReports}
+                    specialVotes={specialVotes}
+                    setSpecialVotes={setSpecialVotes}
+                    testVoteText={testVoteText}
+                    setTestVoteText={setTestVoteText}
                   />
                 )}
-                {activeTab === 'forms' && <FormsGuide completedForms={completedForms} toggleFormTask={toggleFormTask} />}
+                {activeTab === 'sms' && <SmsPanel userInfo={userInfo} tally={tally} tallyReports={tallyReports} />}
+                {activeTab === 'guide' && <GuideSection completedForms={completedForms} toggleFormTask={toggleFormTask} />}
               </main>
 
-              <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-2 pb-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
+              {/* BOTTOM NAVIGATION (6 Tabs) */}
+              <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-between px-2 py-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
                 <NavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<Icons.Home />} label="হোম" />
-                <NavButton active={activeTab === 'myrole'} onClick={() => setActiveTab('myrole')} icon={<Icons.User />} label="আমার ডিউটি" />
+                <NavButton active={activeTab === 'myrole'} onClick={() => setActiveTab('myrole')} icon={<Icons.User />} label="ডিউটি" />
                 <NavButton active={activeTab === 'checklist'} onClick={() => setActiveTab('checklist')} icon={<Icons.Check />} label="চেকলিস্ট" />
                 <NavButton active={activeTab === 'tally'} onClick={() => setActiveTab('tally')} icon={<Icons.Activity />} label="ট্যালি" pulse={currentStageId === 'live'} />
-                <NavButton active={activeTab === 'forms'} onClick={() => setActiveTab('forms')} icon={<Icons.FileText />} label="ফর্মস" />
+                <NavButton active={activeTab === 'sms'} onClick={() => setActiveTab('sms')} icon={<Icons.Message />} label="SMS" />
+                <NavButton active={activeTab === 'guide'} onClick={() => setActiveTab('guide')} icon={<Icons.BookOpen />} label="গাইড" />
               </nav>
             </div>
           );
         }
 
+        // --- HELPER FUNCTION ---
+        function getRoleKey(roleStr) {
+          if (roleStr.includes('1st') || roleStr === 'p1') return 'p1';
+          if (roleStr.includes('2nd') || roleStr === 'p2') return 'p2';
+          if (roleStr.includes('3rd') || roleStr === 'p3') return 'p3';
+          return 'pro';
+        }
+
         function NavButton({ active, onClick, icon, label, pulse }) {
           return (
-            <button onClick={onClick} className={`flex flex-col items-center p-2 min-w-[60px] relative ${active ? 'text-blue-600' : 'text-slate-400'}`}>
+            <button onClick={onClick} className={`flex flex-col items-center p-1.5 w-14 relative transition-colors rounded-xl ${active ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:bg-slate-50'}`}>
               <div className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`}>
                 {icon}
-                {pulse && !active && <span className="absolute top-1 right-3 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>}
-                {pulse && !active && <span className="absolute top-1 right-3 w-2 h-2 bg-red-500 rounded-full"></span>}
+                {pulse && !active && <span className="absolute top-1 right-2 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>}
+                {pulse && !active && <span className="absolute top-1 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
               </div>
-              <span className="text-[10px] font-bold tracking-wide">{label}</span>
+              <span className="text-[9px] font-bold tracking-wide">{label}</span>
             </button>
           );
         }
 
-        function Dashboard({ currentStageId, setCurrentStageId, completedTasks, setActiveTab, clearAllData }) {
+        // --- DASHBOARD ---
+        function Dashboard({ userInfo, setUserInfo, currentStageId, setCurrentStageId, completedTasks, setActiveTab, clearAllData }) {
           const currentStageIndex = STAGES.findIndex(s => s.id === currentStageId);
           
+          const handleProfileChange = (field, value) => {
+            setUserInfo(prev => ({ ...prev, [field]: value }));
+          };
+
           return (
-            <div className="space-y-6">
+            <div className="space-y-6 p-1">
+              
+              {/* PROFILE SETUP CARD */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <Icons.User /> প্রোফাইল ও বুথ সেটআপ
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">আপনার নাম</label>
+                      <input type="text" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-blue-400" 
+                        value={userInfo.name} onChange={e => handleProfileChange('name', e.target.value)} placeholder="নাম" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">পদ (Role)</label>
+                      <select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-blue-400"
+                        value={userInfo.role} onChange={e => handleProfileChange('role', e.target.value)}>
+                        <option value="pro">PrO (প্রিসাইডিং)</option>
+                        <option value="p1">PO-1</option>
+                        <option value="p2">PO-2</option>
+                        <option value="p3">PO-3</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">AC নং</label>
+                      <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-blue-400" 
+                        value={userInfo.acNumber} onChange={e => handleProfileChange('acNumber', e.target.value)} placeholder="যেমন 142" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">বুথ নং</label>
+                      <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-blue-400" 
+                        value={userInfo.booth} onChange={e => handleProfileChange('booth', e.target.value)} placeholder="যেমন 56" />
+                    </div>
+                  </div>
+                  
+                  {/* Show SMS number ONLY if role is PrO */}
+                  {userInfo.role === 'pro' && (
+                    <div className="pt-2 border-t border-slate-100 mt-2">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 text-blue-600">SMS পাঠানোর নম্বর (Target No.)</label>
+                      <input type="number" className="w-full p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm font-bold text-blue-800 focus:outline-none focus:border-blue-400" 
+                        value={userInfo.smsNumber} onChange={e => handleProfileChange('smsNumber', e.target.value)} placeholder="যেমন 56070" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* PROGRESS BARS */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
                 <h3 className="font-bold text-slate-800 mb-4 px-1">কাজের অগ্রগতি (Checklist Progress)</h3>
                 <div className="space-y-4">
@@ -287,7 +484,7 @@
                     const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
 
                     return (
-                      <div key={stage.id} className="relative">
+                      <div key={stage.id} className="relative cursor-pointer" onClick={() => {setCurrentStageId(stage.id); setActiveTab('checklist');}}>
                         <div className="flex justify-between text-xs font-bold mb-1">
                           <span className={percent === 100 ? 'text-green-600' : 'text-slate-700'}>{stage.title}</span>
                           <span className={percent === 100 ? 'text-green-600' : 'text-blue-600'}>{percent}%</span>
@@ -304,22 +501,24 @@
                 </div>
               </div>
 
+              {/* QUICK ACTIONS */}
               <div>
                 <h3 className="font-bold text-slate-800 mb-3 px-1">কুইক অ্যাকশন (Quick Actions)</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <ActionCard title="টেন্ডার ভোট" desc="Form 17B ইস্যু" color="border-orange-200 bg-orange-50" text="text-orange-800" onClick={() => setActiveTab('forms')} />
-                  <ActionCard title="২ ঘণ্টার রিপোর্ট" desc="SMS গাইডলাইন" color="border-indigo-200 bg-indigo-50" text="text-indigo-800" onClick={() => alert("SMS ফর্ম্যাট:\n1. Safe Arrival: WB EL <AC> P <Stn>\n2. Mock Poll: WB EL <AC> M <Stn>\n3. 2-Hourly: WB EL <AC> V <Stn> <Votes>")} />
+                  <ActionCard title="SMS প্যানেল" desc="অটোমেটিক SMS পাঠান" color="border-blue-200 bg-blue-50" text="text-blue-800" onClick={() => setActiveTab('sms')} />
+                  <ActionCard title="বিশেষ পরিস্থিতি" desc="চ্যালেঞ্জ, টেন্ডার ইত্যাদি" color="border-orange-200 bg-orange-50" text="text-orange-800" onClick={() => setActiveTab('guide')} />
                   <ActionCard title="মক পোল ক্লিয়ার" desc="CRC নিশ্চিতকরণ" color="border-red-200 bg-red-50" text="text-red-800" onClick={() => alert("মনে রাখবেন: Close -> Result -> Clear (CRC) করা বাধ্যতামূলক। Total=0 হতে হবে।")} />
-                  <ActionCard title="হেল্প / ইমারজেন্সি" desc="সাধারণ সমস্যা" color="border-slate-200 bg-white" text="text-slate-800" onClick={() => setActiveTab('forms')} />
+                  <ActionCard title="হেল্প / ইমারজেন্সি" desc="সাধারণ সমস্যা" color="border-slate-200 bg-white" text="text-slate-800" onClick={() => setActiveTab('guide')} />
                 </div>
               </div>
 
+              {/* FACTORY RESET */}
               <div className="mt-8 mb-2">
                 <button 
                   onClick={clearAllData} 
                   className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3.5 rounded-xl border border-red-200 transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
-                  <Icons.Trash /> সম্পূর্ণ অ্যাপ রিসেট করুন (Factory Reset)
+                  <Icons.Trash /> সম্পূর্ণ অ্যাপ রিসেট করুন
                 </button>
                 <p className="text-[10px] text-center text-slate-400 mt-2 font-medium leading-relaxed">
                   নতুন ডিউটি শুরু করার আগে এটি ব্যবহার করুন।<br/>এটি চাপলে অফলাইনে সেভ থাকা সমস্ত ডেটা মুছে যাবে।
@@ -341,12 +540,330 @@
           );
         }
 
-        function TallyCounter({ tally, setTally, totalVotes, tallyReports, setTallyReports }) {
+        // --- NEW SMS PANEL COMPONENT WITH DROPDOWN ---
+        function SmsPanel({ userInfo, tally, tallyReports }) {
+          const [queueCount, setQueueCount] = useState('');
+          const timeSlots = ["9 AM", "11 AM", "1 PM", "3 PM", "5 PM", "6 PM (Final)"];
+          
+          const [selectedTime, setSelectedTime] = useState(() => {
+            const saved = localStorage.getItem('poll_sms_time');
+            if (saved && timeSlots.includes(saved)) return saved;
+            if (tallyReports && tallyReports.length > 0) return tallyReports[tallyReports.length - 1].timeLabel;
+            return "9 AM";
+          });
+
+          useEffect(() => {
+            localStorage.setItem('poll_sms_time', selectedTime);
+          }, [selectedTime]);
+
+          const sendSms = (text) => {
+            if(!userInfo.smsNumber || !userInfo.acNumber || !userInfo.booth) {
+               return alert("দয়া করে হোম পেজে গিয়ে আপনার AC নং, বুথ নং এবং SMS নম্বর আপডেট করুন।");
+            }
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const separator = isIOS ? '&' : '?';
+            window.location.href = `sms:${userInfo.smsNumber}${separator}body=${encodeURIComponent(text)}`;
+          };
+
+          const smsList = [
+            { id: 'reg', label: 'Registration (ডিসি-তে পৌঁছে)', format: `WB EL ${userInfo.acNumber} P ${userInfo.booth}` },
+            { id: 'safe_ps', label: 'Safe Arrival at PS (বুথে পৌঁছে)', format: `WB EL PS` },
+            { id: 'mock', label: 'Mock Poll Completed (মক পোল শেষে)', format: `WB EL MOCK` },
+            { id: 'start', label: 'Poll Start (ভোট শুরু হলে)', format: `WB EL START` },
+            { id: 'end', label: 'Poll End (ভোট সমাপ্ত হলে)', format: `WB EL END` },
+            { id: 'safe_rc', label: 'Safe Arrival at RC (RC-তে পৌঁছে)', format: `WB EL RC` }
+          ];
+
+          const selectedReport = tallyReports ? tallyReports.find(r => r.timeLabel === selectedTime) : null;
+          const dataToSend = selectedReport || tally;
+          const totalEvm = dataToSend.male + dataToSend.female + dataToSend.tg;
+
+          return (
+            <div className="space-y-6">
+              <div className="bg-blue-900 text-white p-5 rounded-2xl shadow-md">
+                <h2 className="text-xl font-bold flex items-center gap-2"><Icons.Message /> অটোমেটিক SMS প্যানেল</h2>
+                <p className="text-xs text-blue-200 mt-1 leading-relaxed">বাটন চাপলেই আপনার ফোনের মেসেজ অ্যাপে টেক্সট অটোমেটিক লেখা হয়ে যাবে। শুধু Send করবেন।</p>
+                <p className="text-xs font-bold text-blue-300 mt-2 bg-blue-800 inline-block px-2 py-1 rounded border border-blue-600">পাঠানোর নম্বর: {userInfo.smsNumber || 'সেট করা নেই'}</p>
+              </div>
+
+              {/* 2-Hourly Report (Auto Fetched from Selected Report or Tally) */}
+              <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">
+                  <Icons.Activity /> ২ ঘণ্টার রিপোর্ট (Cumulative)
+                </h3>
+                
+                <div className="mb-4">
+                  <label className="block text-[10px] font-bold text-indigo-600 uppercase mb-1.5">কোন সময়ের রিপোর্ট পাঠাবেন?</label>
+                  <div className="relative">
+                    <select 
+                      className="w-full p-3 bg-white border border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-900 outline-none appearance-none shadow-sm"
+                      value={selectedTime}
+                      onChange={(e) => setSelectedTime(e.target.value)}
+                    >
+                      {timeSlots.map(time => (
+                        <option key={time} value={time}>{time} Report</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-4 top-4 text-indigo-400 pointer-events-none"><Icons.ChevronDown /></div>
+                  </div>
+                </div>
+
+                {!selectedReport && (
+                  <div className="bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-bold p-2.5 rounded-lg mb-4 flex items-start gap-2">
+                    <span className="mt-0.5"><Icons.Alert /></span>
+                    <p className="leading-snug">এই সময়ের কোনো ডেটা Tally ট্যাবে সেভ করা নেই। নিচে বর্তমান লাইভ ট্যালি দেখানো হচ্ছে। সঠিক ডেটা পাঠাতে আগে Tally ট্যাবে গিয়ে সেভ করুন।</p>
+                  </div>
+                )}
+                
+                <div className="bg-blue-100 border border-blue-300 text-blue-900 text-xs font-bold p-3 rounded-lg mb-4 text-center shadow-inner">
+                  Total EVM Votes: {dataToSend.male} + {dataToSend.female} + {dataToSend.tg} = <span className="text-lg text-blue-700">{totalEvm}</span><br/>
+                  <span className="text-[10px] text-blue-600 font-medium">(Excluding Tender Votes)</span>
+                </div>
+                
+                <div className="flex gap-2 mb-4 bg-white p-3 rounded-xl border border-indigo-100">
+                  <div className="flex-1 text-center border-r border-indigo-100">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">Male</p>
+                    <p className="font-black text-indigo-600">{dataToSend.male}</p>
+                  </div>
+                  <div className="flex-1 text-center border-r border-indigo-100">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">Female</p>
+                    <p className="font-black text-indigo-600">{dataToSend.female}</p>
+                  </div>
+                  <div className="flex-1 text-center">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">Others</p>
+                    <p className="font-black text-indigo-600">{dataToSend.tg}</p>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-100 p-2 rounded-lg mb-3 border border-slate-200 font-mono text-sm text-slate-700 font-bold text-center">
+                  WB EL {dataToSend.male} {dataToSend.female} {dataToSend.tg}
+                </div>
+                
+                <button 
+                  onClick={() => sendSms(`WB EL ${dataToSend.male} ${dataToSend.female} ${dataToSend.tg}`)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+                >
+                  <Icons.Send /> SMS পাঠান
+                </button>
+              </div>
+
+              {/* Queue SMS */}
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                  <Icons.User /> ৬টায় লাইনে থাকা ভোটার (Queue)
+                </h3>
+                <div className="flex gap-3 items-center mb-3">
+                  <input 
+                    type="number" 
+                    placeholder="লাইনের শেষ সংখ্যা লিখুন" 
+                    className="flex-1 p-3 rounded-xl border border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-amber-900 font-bold"
+                    value={queueCount}
+                    onChange={(e) => setQueueCount(e.target.value)}
+                  />
+                </div>
+                <div className="bg-slate-100 p-2 rounded-lg mb-3 border border-slate-200 font-mono text-sm text-slate-700 font-bold text-center">
+                  WB EL Q {queueCount || '0'}
+                </div>
+                <button 
+                  onClick={() => {
+                    if(!queueCount) return alert('দয়া করে কিউ-এ থাকা ভোটারের সংখ্যা লিখুন। কেউ না থাকলে 0 লিখুন।');
+                    sendSms(`WB EL Q ${queueCount}`);
+                  }}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+                >
+                  <Icons.Send /> SMS পাঠান
+                </button>
+              </div>
+
+              {/* Standard Event SMS */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-slate-800 mb-4">অন্যান্য ইভেন্ট SMS</h3>
+                <div className="space-y-3">
+                  {smsList.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-blue-50 transition-colors">
+                      <div>
+                        <p className="font-bold text-slate-700 text-sm">{item.label}</p>
+                        <p className="font-mono text-[11px] text-slate-500 mt-1">{item.format}</p>
+                      </div>
+                      <button 
+                        onClick={() => sendSms(item.format)}
+                        className="bg-slate-800 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm hover:bg-blue-600 transition-colors active:scale-90"
+                      >
+                        <Icons.Send />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <p className="text-[10px] text-slate-400 text-center px-4 leading-relaxed font-medium">সতর্কতা: SMS পাঠানোর আগে আপনার মোবাইলের সিগন্যাল ঠিক আছে কিনা দেখে নেবেন এবং ডেলিভারি রিপোর্ট চেক করবেন।</p>
+            </div>
+          );
+        }
+
+        // --- CHECKLIST VIEW ---
+        function ChecklistView({ currentStageId, setCurrentStageId, completedTasks, toggleTask, setActiveTab }) {
+          const stageTasks = CHECKLIST_DATA[currentStageId] || [];
+
+          const roleColors = {
+            all: 'bg-slate-100 text-slate-600',
+            pro: 'bg-blue-100 text-blue-700',
+            p1: 'bg-purple-100 text-purple-700',
+            p2: 'bg-orange-100 text-orange-700',
+            p3: 'bg-teal-100 text-teal-700'
+          };
+          
+          const roleLabels = { all: 'টিম (Team)', pro: 'PrO', p1: 'P1', p2: 'P2', p3: 'P3' };
+
+          return (
+            <div className="space-y-4">
+              <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar">
+                {STAGES.map(stage => (
+                  <button 
+                    key={stage.id}
+                    onClick={() => setCurrentStageId(stage.id)}
+                    className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${currentStageId === stage.id ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                  >
+                    {stage.short}
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                {stageTasks.length === 0 ? (
+                  <p className="p-6 text-center text-slate-500 font-medium">এই পর্বে কোনো চেকলিস্ট নেই।</p>
+                ) : (
+                  stageTasks.map(task => {
+                    const isDone = completedTasks[task.id];
+                    return (
+                      <div key={task.id} className={`p-4 transition-colors ${isDone ? 'bg-green-50/30' : 'hover:bg-slate-50'}`}>
+                        <div className="flex items-start gap-4 cursor-pointer" onClick={() => toggleTask(task.id)}>
+                          <div className="shrink-0 mt-0.5">
+                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
+                              ${isDone ? 'bg-green-500 border-green-500 text-white scale-110' : 'border-slate-300 bg-white'}
+                              ${task.critical && !isDone ? 'border-red-400 bg-red-50' : ''}
+                            `}>
+                              {isDone && <Icons.Check />}
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${roleColors[task.role]}`}>
+                                {roleLabels[task.role]}
+                              </span>
+                              {task.critical && !isDone && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100 px-2 py-0.5 rounded">অত্যন্ত জরুরি</span>
+                              )}
+                            </div>
+                            <p className={`text-sm leading-relaxed ${isDone ? 'text-slate-400 line-through' : 'text-slate-800 font-medium'} ${task.critical && !isDone ? 'text-red-700' : ''}`}>
+                              {task.text}
+                            </p>
+                            
+                            {/* Checklist specific details */}
+                            {task.details && (
+                              <ul className={`mt-2 space-y-1.5 pl-1 ${isDone ? 'opacity-50 line-through' : ''}`}>
+                                {task.details.map((detail, dIdx) => (
+                                  <li key={dIdx} className="text-[13px] text-slate-600 font-medium flex gap-2 items-start">
+                                    <span className="text-blue-400 mt-0.5">•</span>
+                                    <span className="leading-snug">{detail}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Inline SMS Button linking to SMS Tab */}
+                        {task.actionTab === 'sms' && (
+                           <div className="ml-10 mt-3">
+                             <button onClick={(e) => { e.stopPropagation(); setActiveTab('sms'); window.scrollTo(0,0); }} 
+                               className="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-indigo-200 transition-colors shadow-sm border border-indigo-200">
+                               <Icons.Send /> SMS প্যানেলে যান
+                             </button>
+                           </div>
+                        )}
+
+                        {/* Show Mistake or Tip */}
+                        {!isDone && (task.mistake || task.tip) && (
+                          <div className="ml-10 mt-3 space-y-2 pr-2">
+                            {task.mistake && (
+                              <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                                <h4 className="text-[11px] font-bold text-red-800 mb-1 flex items-center gap-1 uppercase tracking-wider">
+                                  <Icons.XCircle /> কী ভুল হতে পারে
+                                </h4>
+                                <p className="text-sm text-red-700/90 font-medium leading-snug">{task.mistake}</p>
+                              </div>
+                            )}
+                            {task.tip && (
+                              <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                                <h4 className="text-[11px] font-bold text-amber-800 mb-1 flex items-center gap-1 uppercase tracking-wider">
+                                  <Icons.Lightbulb /> টিপস
+                                </h4>
+                                <p className="text-sm text-amber-800/90 font-medium leading-snug">{task.tip}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // --- TALLY COUNTER WITH SPECIAL CASES ---
+        function TallyCounter({ tally, setTally, totalVotes, tallyReports, setTallyReports, specialVotes, setSpecialVotes, testVoteText, setTestVoteText }) {
+          const [editingId, setEditingId] = useState(null);
+          const [editForm, setEditForm] = useState({ male: 0, female: 0, tg: 0 });
+          const [actionModal, setActionModal] = useState(null); // { type: 'challenged', action: 'add' }
+
+          const specialVoteLabels = {
+            challenged: "চ্যালেঞ্জ ভোট",
+            test: "টেস্ট ভোট (49MA)",
+            asd: "ASD ভোট",
+            proxy: "প্রক্সি (CSV)",
+            blind: "অন্ধ/অশক্ত"
+          };
+
           const updateCount = (type, increment) => {
             setTally(prev => ({
               ...prev,
               [type]: Math.max(0, prev[type] + (increment ? 1 : -1))
             }));
+          };
+
+          // Handles special vote that increments EVM count
+          const initiateSpecialAction = (type, action) => {
+             setActionModal({ type, action });
+          };
+
+          const confirmSpecialAction = (gender) => {
+             if(!actionModal) return;
+             const increment = actionModal.action === 'add' ? 1 : -1;
+             
+             // Update special counter
+             setSpecialVotes(prev => ({
+                ...prev, 
+                [actionModal.type]: Math.max(0, prev[actionModal.type] + increment)
+             }));
+             
+             // Update EVM Tally counter
+             setTally(prev => ({
+                ...prev,
+                [gender]: Math.max(0, prev[gender] + increment)
+             }));
+
+             setActionModal(null);
+          };
+
+          // Tendered vote logic (Does NOT update EVM count)
+          const updateTendered = (increment) => {
+             setSpecialVotes(prev => ({
+                ...prev,
+                tendered: Math.max(0, prev.tendered + (increment ? 1 : -1))
+             }));
           };
 
           const handleReset = () => {
@@ -368,7 +885,7 @@
                 male: tally.male,
                 female: tally.female,
                 tg: tally.tg,
-                timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) + ' (Manual)'
               };
               setTallyReports([...tallyReports, newReport]);
             }
@@ -380,8 +897,26 @@
             }
           };
 
+          const startEdit = (report) => {
+            setEditingId(report.id);
+            setEditForm({ male: report.male, female: report.female, tg: report.tg });
+          };
+
+          const saveEdit = (id) => {
+            setTallyReports(prev => prev.map(r => {
+              if (r.id === id) {
+                const male = parseInt(editForm.male) || 0;
+                const female = parseInt(editForm.female) || 0;
+                const tg = parseInt(editForm.tg) || 0;
+                return { ...r, male, female, tg, total: male + female + tg };
+              }
+              return r;
+            }));
+            setEditingId(null);
+          };
+
           return (
-            <div className="space-y-5">
+            <div className="space-y-5 relative">
               <div className="flex justify-between items-center px-1">
                 <h2 className="text-xl font-bold text-slate-800">ম্যানুয়াল ট্যালি (Tally)</h2>
                 <button onClick={handleReset} className="text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1.5 rounded-lg transition-colors border border-red-200">
@@ -389,54 +924,148 @@
                 </button>
               </div>
 
-              <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-                <p className="text-slate-300 font-bold uppercase tracking-wider text-sm mb-1">বর্তমান এন্ট্রি</p>
-                <p className="text-6xl font-black tracking-tight">{totalVotes}</p>
-                
-                <button 
-                  onClick={handleSaveReport}
-                  className="mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl w-full flex items-center justify-center gap-2 transition-colors border border-blue-400 shadow-sm"
-                >
-                  <Icons.Save /> এই মুহূর্তের হিসাব সেভ করুন
-                </button>
-              </div>
-
-              <div className="grid gap-3">
-                <CounterRow label="পুরুষ (Male)" count={tally.male} onAdd={() => updateCount('male', true)} onSub={() => updateCount('male', false)} color="blue" />
-                <CounterRow label="নারী (Female)" count={tally.female} onAdd={() => updateCount('female', true)} onSub={() => updateCount('female', false)} color="pink" />
-                <CounterRow label="তৃতীয় লিঙ্গ (TG)" count={tally.tg} onAdd={() => updateCount('tg', true)} onSub={() => updateCount('tg', false)} color="purple" />
-              </div>
-
-              {tallyReports.length > 0 && (
-                <div className="pt-4 border-t border-slate-200">
-                  <h3 className="font-bold text-slate-800 mb-3 px-1">সেভ করা রিপোর্ট (২ ঘণ্টা অন্তর)</h3>
-                  <div className="space-y-3">
-                    {tallyReports.map(report => (
-                      <div key={report.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
-                        <button onClick={() => deleteReport(report.id)} className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors">
-                          <Icons.XCircle />
-                        </button>
-                        <div className="flex justify-between items-end mb-2">
-                          <div>
-                            <p className="font-bold text-blue-800 text-lg">{report.timeLabel} Report</p>
-                            <p className="text-[10px] text-slate-500 font-medium">Saved at: {report.timestamp}</p>
-                          </div>
-                          <div className="text-right pr-6">
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total</p>
-                            <p className="font-black text-xl text-slate-800 leading-none">{report.total}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 text-xs font-medium text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-3">
-                          <span className="flex-1 text-center border-r border-slate-200">M: <strong className="text-blue-600">{report.male}</strong></span>
-                          <span className="flex-1 text-center border-r border-slate-200">F: <strong className="text-pink-600">{report.female}</strong></span>
-                          <span className="flex-1 text-center">TG: <strong className="text-purple-600">{report.tg}</strong></span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {/* ACTION MODAL FOR SPECIAL VOTES */}
+              {actionModal && (
+                 <div className="absolute top-10 left-0 right-0 z-20 bg-white p-5 rounded-2xl shadow-xl border border-blue-200 animate-in fade-in zoom-in duration-200">
+                    <h3 className="font-bold text-blue-900 text-lg mb-1">{specialVoteLabels[actionModal.type]}</h3>
+                    <p className="text-xs text-blue-600 mb-4 font-medium">ভোটারের লিঙ্গ নির্বাচন করুন (এটি EVM কাউন্টেও যোগ হবে):</p>
+                    <div className="flex gap-2 mb-4">
+                       <button onClick={() => confirmSpecialAction('male')} className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-3 rounded-xl border border-blue-300">পুরুষ</button>
+                       <button onClick={() => confirmSpecialAction('female')} className="flex-1 bg-pink-100 hover:bg-pink-200 text-pink-800 font-bold py-3 rounded-xl border border-pink-300">নারী</button>
+                       <button onClick={() => confirmSpecialAction('tg')} className="flex-1 bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold py-3 rounded-xl border border-purple-300">TG</button>
+                    </div>
+                    <button onClick={() => setActionModal(null)} className="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200">বাতিল করুন</button>
+                 </div>
               )}
+
+              <div className={`transition-opacity duration-200 ${actionModal ? 'opacity-30 pointer-events-none' : ''}`}>
+                 <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg text-center relative overflow-hidden mb-5">
+                   <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+                   <p className="text-slate-300 font-bold uppercase tracking-wider text-sm mb-1">মোট EVM ভোট</p>
+                   <p className="text-6xl font-black tracking-tight">{totalVotes}</p>
+                   
+                   <button 
+                     onClick={handleSaveReport}
+                     className="mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl w-full flex items-center justify-center gap-2 transition-colors border border-blue-400 shadow-sm"
+                   >
+                     <Icons.Save /> এই মুহূর্তের হিসাব সেভ করুন
+                   </button>
+                 </div>
+
+                 <div className="grid gap-3 mb-6">
+                   <CounterRow label="পুরুষ (Male)" count={tally.male} onAdd={() => updateCount('male', true)} onSub={() => updateCount('male', false)} color="blue" />
+                   <CounterRow label="নারী (Female)" count={tally.female} onAdd={() => updateCount('female', true)} onSub={() => updateCount('female', false)} color="pink" />
+                   <CounterRow label="তৃতীয় লিঙ্গ (TG)" count={tally.tg} onAdd={() => updateCount('tg', true)} onSub={() => updateCount('tg', false)} color="purple" />
+                 </div>
+
+                 {/* SPECIAL VOTES SECTION */}
+                 <div className="pt-4 border-t border-slate-200">
+                    <h3 className="font-bold text-slate-800 mb-1 px-1">বিশেষ ভোট (Special EVM Votes)</h3>
+                    <p className="text-[10px] text-slate-500 font-medium px-1 mb-3">এগুলোতে ক্লিক করলে EVM ট্যালি এবং বিশেষ কাউন্ট—উভয়ই বাড়বে।</p>
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                       <SpecialCounterBtn label="চ্যালেঞ্জ" count={specialVotes.challenged} onAdd={() => initiateSpecialAction('challenged', 'add')} onSub={() => initiateSpecialAction('challenged', 'sub')} />
+                       <SpecialCounterBtn label="টেস্ট ভোট" count={specialVotes.test} onAdd={() => initiateSpecialAction('test', 'add')} onSub={() => initiateSpecialAction('test', 'sub')} />
+                       <SpecialCounterBtn label="ASD" count={specialVotes.asd} onAdd={() => initiateSpecialAction('asd', 'add')} onSub={() => initiateSpecialAction('asd', 'sub')} />
+                       <SpecialCounterBtn label="প্রক্সি (CSV)" count={specialVotes.proxy} onAdd={() => initiateSpecialAction('proxy', 'add')} onSub={() => initiateSpecialAction('proxy', 'sub')} />
+                       <SpecialCounterBtn label="অন্ধ/অশক্ত" count={specialVotes.blind} onAdd={() => initiateSpecialAction('blind', 'add')} onSub={() => initiateSpecialAction('blind', 'sub')} />
+                    </div>
+
+                    {/* Test Vote Log Entry */}
+                    {specialVotes.test > 0 && (
+                       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 shadow-sm">
+                          <label className="block text-xs font-bold text-blue-800 mb-2">টেস্ট ভোট লগ (Form 17C এর জন্য):</label>
+                          <textarea 
+                             className="w-full p-3 rounded-lg border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
+                             rows="2"
+                             placeholder="সিরিয়াল নং এবং যাকে ভোট দেওয়া হয়েছে তা লিখে রাখুন..."
+                             value={testVoteText}
+                             onChange={(e) => setTestVoteText(e.target.value)}
+                          ></textarea>
+                       </div>
+                    )}
+
+                    <h3 className="font-bold text-slate-800 mb-1 px-1 mt-6">টেন্ডার ভোট (ব্যালট পেপার)</h3>
+                    <p className="text-[10px] text-orange-600 font-bold px-1 mb-3">এটি EVM ট্যালিতে যোগ হবে না। শুধু নিচে কাউন্ট বাড়বে।</p>
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex justify-between items-center shadow-sm mb-6">
+                       <span className="font-bold text-orange-900 ml-2">টেন্ডার ভোট</span>
+                       <div className="flex items-center gap-3">
+                          <button onClick={() => updateTendered(false)} className="w-8 h-8 bg-white border border-orange-200 shadow-sm rounded-full flex items-center justify-center active:scale-90 text-orange-600">
+                             <Icons.Minus />
+                          </button>
+                          <span className="w-6 text-center text-lg font-black text-orange-900">{specialVotes.tendered}</span>
+                          <button onClick={() => updateTendered(true)} className="w-10 h-10 bg-orange-500 shadow-md rounded-full flex items-center justify-center active:scale-90 text-white">
+                             <Icons.Plus />
+                          </button>
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* SAVED REPORTS SECTION */}
+                 {tallyReports.length > 0 && (
+                   <div className="pt-4 border-t border-slate-200">
+                     <h3 className="font-bold text-slate-800 mb-3 px-1">সেভ করা রিপোর্ট (২ ঘণ্টা অন্তর)</h3>
+                     <div className="space-y-3">
+                       {tallyReports.map(report => (
+                         <div key={report.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
+                           
+                           {/* Action Buttons (Edit & Delete) */}
+                           <div className="absolute top-3 right-3 flex gap-2">
+                             <button onClick={() => startEdit(report)} className="text-slate-400 hover:text-blue-600 transition-colors">
+                               <Icons.Edit />
+                             </button>
+                             <button onClick={() => deleteReport(report.id)} className="text-slate-400 hover:text-red-500 transition-colors">
+                               <Icons.XCircle />
+                             </button>
+                           </div>
+
+                           <div className="flex justify-between items-end mb-2">
+                             <div>
+                               <p className="font-bold text-blue-800 text-lg">{report.timeLabel} Report</p>
+                               <p className="text-[10px] text-slate-500 font-medium">Saved at: {report.timestamp}</p>
+                             </div>
+                             <div className="text-right pr-14">
+                               <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">EVM Total</p>
+                               <p className="font-black text-xl text-slate-800 leading-none">{report.total}</p>
+                             </div>
+                           </div>
+
+                           {/* Edit Mode UI */}
+                           {editingId === report.id ? (
+                             <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                                <div className="flex gap-2 mb-3">
+                                   <div className="flex-1">
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Male</label>
+                                      <input type="number" value={editForm.male} onChange={e => setEditForm({...editForm, male: e.target.value})} className="w-full p-2 rounded-lg border border-blue-300 text-center font-bold outline-none" />
+                                   </div>
+                                   <div className="flex-1">
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Female</label>
+                                      <input type="number" value={editForm.female} onChange={e => setEditForm({...editForm, female: e.target.value})} className="w-full p-2 rounded-lg border border-blue-300 text-center font-bold outline-none" />
+                                   </div>
+                                   <div className="flex-1">
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">TG</label>
+                                      <input type="number" value={editForm.tg} onChange={e => setEditForm({...editForm, tg: e.target.value})} className="w-full p-2 rounded-lg border border-blue-300 text-center font-bold outline-none" />
+                                   </div>
+                                </div>
+                                <div className="flex gap-2">
+                                   <button onClick={() => setEditingId(null)} className="flex-1 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-xs">বাতিল</button>
+                                   <button onClick={() => saveEdit(report.id)} className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs">সেভ করুন</button>
+                                </div>
+                             </div>
+                           ) : (
+                             // Normal Display Mode
+                             <div className="flex gap-2 text-xs font-medium text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-3">
+                               <span className="flex-1 text-center border-r border-slate-200">M: <strong className="text-blue-600">{report.male}</strong></span>
+                               <span className="flex-1 text-center border-r border-slate-200">F: <strong className="text-pink-600">{report.female}</strong></span>
+                               <span className="flex-1 text-center">TG: <strong className="text-purple-600">{report.tg}</strong></span>
+                             </div>
+                           )}
+
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+              </div>
             </div>
           );
         }
@@ -464,8 +1093,24 @@
           );
         }
 
-        function RoleGuide() {
-          const [selectedRole, setSelectedRole] = useState('pro');
+        function SpecialCounterBtn({ label, count, onAdd, onSub }) {
+           return (
+              <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-sm flex items-center justify-between">
+                 <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-slate-600">{label}</span>
+                    <span className="text-lg font-black text-blue-800 leading-none">{count}</span>
+                 </div>
+                 <div className="flex flex-col gap-1">
+                    <button onClick={onAdd} className="w-6 h-6 bg-blue-100 text-blue-600 rounded flex items-center justify-center font-bold text-lg active:scale-90">+</button>
+                    <button onClick={onSub} className="w-6 h-6 bg-slate-100 text-slate-500 rounded flex items-center justify-center font-bold text-lg active:scale-90">-</button>
+                 </div>
+              </div>
+           );
+        }
+
+        // --- ROLE GUIDE ---
+        function RoleGuide({ defaultRole }) {
+          const [selectedRole, setSelectedRole] = useState(defaultRole || 'pro');
 
           const roleLabels = { pro: 'প্রিসাইডিং অফিসার (PrO)', p1: '১ম পোলিং অফিসার (P1)', p2: '২য় পোলিং অফিসার (P2)', p3: '৩য় পোলিং অফিসার (P3)' };
 
@@ -522,94 +1167,207 @@
           );
         }
 
-        function ChecklistView({ currentStageId, setCurrentStageId, completedTasks, toggleTask }) {
-          const stageTasks = CHECKLIST_DATA[currentStageId] || [];
-
-          const roleColors = {
-            all: 'bg-slate-100 text-slate-600',
-            pro: 'bg-blue-100 text-blue-700',
-            p1: 'bg-purple-100 text-purple-700',
-            p2: 'bg-orange-100 text-orange-700',
-            p3: 'bg-teal-100 text-teal-700'
-          };
-          
-          const roleLabels = { all: 'টিম (Team)', pro: 'PrO', p1: 'P1', p2: 'P2', p3: 'P3' };
+        // --- GUIDE SECTION (FORMS & SPECIAL CASES) ---
+        function GuideSection({ completedForms, toggleFormTask }) {
+          const [activeSubTab, setActiveSubTab] = useState('forms'); // 'forms' or 'special'
 
           return (
             <div className="space-y-4">
-              <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar">
-                {STAGES.map(stage => (
-                  <button 
-                    key={stage.id}
-                    onClick={() => setCurrentStageId(stage.id)}
-                    className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${currentStageId === stage.id ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                  >
-                    {stage.short}
-                  </button>
-                ))}
+              {/* Sub-Tab Navigation */}
+              <div className="flex bg-slate-200 p-1 rounded-xl">
+                <button 
+                  onClick={() => setActiveSubTab('forms')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${activeSubTab === 'forms' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600'}`}
+                >
+                  প্যাকিং ও ফর্মস
+                </button>
+                <button 
+                  onClick={() => setActiveSubTab('special')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${activeSubTab === 'special' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600'}`}
+                >
+                  বিশেষ পরিস্থিতি
+                </button>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
-                {stageTasks.length === 0 ? (
-                  <p className="p-6 text-center text-slate-500 font-medium">এই পর্বে কোনো চেকলিস্ট নেই।</p>
-                ) : (
-                  stageTasks.map(task => {
-                    const isDone = completedTasks[task.id];
-                    return (
-                      <div key={task.id} className={`p-4 transition-colors ${isDone ? 'bg-green-50/30' : 'hover:bg-slate-50'}`}>
-                        <div className="flex items-start gap-4 cursor-pointer" onClick={() => toggleTask(task.id)}>
-                          <div className="shrink-0 mt-0.5">
-                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
-                              ${isDone ? 'bg-green-500 border-green-500 text-white scale-110' : 'border-slate-300 bg-white'}
-                              ${task.critical && !isDone ? 'border-red-400 bg-red-50' : ''}
-                            `}>
-                              {isDone && <Icons.Check />}
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${roleColors[task.role]}`}>
-                                {roleLabels[task.role]}
-                              </span>
-                              {task.critical && !isDone && (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100 px-2 py-0.5 rounded">অত্যন্ত জরুরি</span>
-                              )}
-                            </div>
-                            <p className={`text-sm leading-relaxed ${isDone ? 'text-slate-400 line-through' : 'text-slate-800 font-medium'} ${task.critical && !isDone ? 'text-red-700' : ''}`}>
-                              {task.text}
-                            </p>
-                          </div>
-                        </div>
-
-                        {!isDone && (task.mistake || task.tip) && (
-                          <div className="ml-10 mt-3 space-y-2 pr-2">
-                            {task.mistake && (
-                              <div className="bg-red-50 border border-red-100 rounded-lg p-3">
-                                <h4 className="text-[11px] font-bold text-red-800 mb-1 flex items-center gap-1 uppercase tracking-wider">
-                                  <Icons.XCircle /> কী ভুল হতে পারে
-                                </h4>
-                                <p className="text-sm text-red-700/90 font-medium leading-snug">{task.mistake}</p>
-                              </div>
-                            )}
-                            {task.tip && (
-                              <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                                <h4 className="text-[11px] font-bold text-amber-800 mb-1 flex items-center gap-1 uppercase tracking-wider">
-                                  <Icons.Lightbulb /> টিপস
-                                </h4>
-                                <p className="text-sm text-amber-800/90 font-medium leading-snug">{task.tip}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+              {activeSubTab === 'forms' && <FormsGuide completedForms={completedForms} toggleFormTask={toggleFormTask} />}
+              {activeSubTab === 'special' && <SpecialCasesGuide />}
+              
+              {/* Common Emergency Help at the bottom */}
+              <div className="mt-8 pt-4 border-t border-slate-200">
+                <EmergencyHelp />
               </div>
             </div>
           );
         }
 
+        // --- SPECIAL CASES GUIDE ---
+        function SpecialCasesGuide() {
+          const [openId, setOpenId] = useState(null);
+
+          const specialCasesData = [
+            {
+              id: 'c1',
+              title: "১. চ্যালেঞ্জ ভোট (Challenged Vote - Rule 36)",
+              desc: "এজেন্ট দাবি করেন ভোটার 'ছদ্মবেশী' (Impersonator)।",
+              form: "Form 14",
+              content: [
+                "টাকা জমা: এজেন্টকে চ্যালেঞ্জ পিছু ২ টাকা জমা দিতে হবে এবং আপনি তাঁকে একটি রসিদ দেবেন।",
+                "তদন্ত: ভোটারকে তাঁর নাম-ঠিকানা জিজ্ঞাসা করবেন এবং ভোটার তালিকার তথ্যের সাথে মেলাবেন। প্রমাণ দিতে বলবেন।",
+                "শপথ: ভোটারকে একটি শপথ বাক্য পাঠ করাবেন যে তিনি যা বলছেন তা সত্য।",
+                "সিদ্ধান্ত (সঠিক হলে): ভোটার ভোট দেবেন। এজেন্টের ২ টাকা বাজেয়াপ্ত হবে।",
+                "সিদ্ধান্ত (ভুল হলে): ভোটারকে ভোট দিতে দেওয়া যাবে না। নির্দিষ্ট চিঠি লিখে পুলিশের হাতে তুলে দিতে হবে। এজেন্টের ২ টাকা ফেরত দিতে হবে।",
+                "ফরম্যাট: Form 14-এ পুরো রেকর্ড রাখতে হবে।"
+              ]
+            },
+            {
+              id: 'c2',
+              title: "২. টেন্ডার ভোট (Tendered Vote - Rule 42)",
+              desc: "আসল ভোটার আসার আগেই কেউ তাঁর ভোট দিয়ে চলে গেছে।",
+              form: "Form 17B",
+              content: [
+                "শনাক্তকরণ: ভোটারকে তাঁর EPIC বা অন্য পরিচয়পত্র দিয়ে আগে প্রমাণ করতে হবে যে তিনিই আসল ভোটার।",
+                "মেশিন নয়: তাঁকে ইভিএম (EVM)-এ ভোট দিতে দেওয়া যাবে না।",
+                "ব্যালট পেপার: তাঁকে ডিসি (DC) থেকে সরবরাহ করা Tendered Ballot Paper দিতে হবে।",
+                "ভোটদান: ভোটার অ্যারো ক্রস মার্ক দিয়ে ব্যালটে ভোট দেবেন এবং ভাঁজ করে আলাদা খামে (Statutory) ভরবেন।",
+                "হিসাব: এটি ইভিএম-এর মোট ভোটের সাথে যুক্ত হবে না। Form 17C-এর ১০ নম্বর আইটেমে আলাদাভাবে এই সংখ্যাটি লিখতে হবে।",
+                "ফরম্যাট: Form 17B-তে ভোটারের নাম ও সই নিতে হবে।"
+              ]
+            },
+            {
+              id: 'c3',
+              title: "৩. টেস্ট ভোট (Test Vote - Rule 49MA)",
+              desc: "ভোটার VVPAT-এর স্বচ্ছতা নিয়ে প্রশ্ন তুললে।",
+              form: "Annexure 14",
+              content: [
+                "সতর্কবার্তা: ভোটারকে পরিষ্কার বলতে হবে যে তাঁর অভিযোগ ভুল প্রমাণিত হলে ৬ মাসের জেল বা ১০০০ টাকা জরিমানা হতে পারে।",
+                "ডিক্লারেশন: ভোটারের থেকে একটি লিখিত ঘোষণা নিতে হবে (Annexure 14)।",
+                "পরীক্ষা: প্রিসাইডিং অফিসার এবং এজেন্টদের সামনে ভোটারকে আবার ভোট দিতে দেওয়া হবে।",
+                "ফলাফল (সত্য হলে): তৎক্ষণাৎ ভোট গ্রহণ বন্ধ করুন এবং সেক্টর অফিসারকে জানান।",
+                "ফলাফল (মিথ্যা হলে): ১৭এ (17A) রেজিস্টারে এই টেস্ট ভোটের তথ্য লিখে আসল ভোট গ্রহণ চালিয়ে যান।",
+                "হিসাব: ১৭সি (17C) ফর্মের ৫ নম্বর কলামে এই টেস্ট ভোটের হিসাব বাদ দিয়ে দেখাতে হয়।"
+              ]
+            },
+            {
+              id: 'c4',
+              title: "৪. অন্ধ ও অশক্ত ভোটার (Blind & Infirm - Rule 40)",
+              desc: "যিনি নিজে বোতাম টিপতে বা শনাক্ত করতে অক্ষম।",
+              form: "Form 14A",
+              content: [
+                "সাথী (Companion): ভোটার নিজের সাথে ১৮ বছরের বেশি বয়সের একজন সাথী আনতে পারেন।",
+                "নিষেধাজ্ঞা: একজন সাথী সারাদিনে কেবল একজনের হয়েই ভোট দিতে পারবেন।",
+                "কালি: সাথীর ডান হাতের তর্জনীতে (Index Finger) অমোচনীয় কালি লাগাতে হবে।",
+                "গোপনীয়তা: সাথীকে একটি ডিক্লারেশন দিতে হবে যে তিনি ভোটারের পছন্দ গোপন রাখবেন।",
+                "ফরম্যাট: Form 14A পূরণ করতে হবে এবং সাথীর থেকে Annexure XII ডিক্লারেশন নিতে হবে।"
+              ]
+            },
+            {
+              id: 'c5',
+              title: "৫. ASD ভোটার (Absent, Shifted, Duplicate)",
+              desc: "নির্বাচন কমিশন থেকে পাঠানো একটি বিশেষ তালিকা।",
+              form: "Annexure 11",
+              content: [
+                "শনাক্তকরণ: এই তালিকার ভোটারের পরিচয় খুব গুরুত্ব দিয়ে পরীক্ষা করতে হবে।",
+                "ঘোষণা: ভোটারের থেকে একটি বিশেষ ডিক্লারেশন নিতে হবে (Annexure 11)।",
+                "রেকর্ড: ১৭এ রেজিস্টারে ভোটারের সই বা টিপছাপের সাথে সাথে সম্ভব হলে তাঁর ছবি তুলে রাখুন।",
+                "সতর্কতা: প্রিসাইডিং অফিসার নিজে নিশ্চিত না হয়ে এঁদের ভোট দিতে দেবেন না।"
+              ]
+            },
+            {
+              id: 'c6',
+              title: "৬. প্রক্সি ভোটার (Proxy Voters / CSV)",
+              desc: "বিদেশে কর্মরত বা সার্ভিস ভোটারদের হয়ে যারা ভোট দেন।",
+              form: "17A Entry",
+              content: [
+                "চিহ্ন: ভোটার তালিকার শেষে CSV (Classified Service Voters) তালিকায় এদের নাম থাকে।",
+                "ভোটদান: প্রক্সি ভোটার নিজের ভোট দেওয়ার পর প্রক্সির ভোট দিতে পারেন (যদি তিনি ওই বুথের ভোটার হন)।",
+                "সবথেকে গুরুত্বপূর্ণ: প্রক্সি ভোটারের ক্ষেত্রে কালি লাগাতে হবে তাঁর বাম হাতের মধ্যমায় (Middle Finger)।",
+                "এন্ট্রি: ১৭এ রেজিস্টারে ভোটারের নামের পাশে (PV) বা 'Proxy' লিখতে হবে।"
+              ]
+            },
+            {
+              id: 'c7',
+              title: "৭. ভোট দানে অস্বীকার (Refusal to Vote - 49-O)",
+              desc: "১৭এ-তে সই করার পর যদি ভোটার মন পাল্টান।",
+              form: "17A Remarks",
+              content: [
+                "রেজিস্টারে এন্ট্রি: ১৭এ রেজিস্টারের 'Remarks' কলামে লিখতে হবে 'Refused to Vote'।",
+                "স্বাক্ষর: ওই রিমার্কসের নিচে ভোটার এবং প্রিসাইডিং অফিসার উভয়কেই সই করতে হবে।",
+                "ব্যালট বাতিল: যদি আপনি ইতিমধ্যেই ইভিএম-এর 'Ballot' বাটন টিপে থাকেন, তবে ভোটারকে আর জোর করা যাবে না। ওই অবস্থাতেই মেশিন রেখে দিতে হবে, পরের ভোটার এলে সেই ব্যালট ব্যবহার করা হবে।"
+              ]
+            },
+            {
+              id: 'c8',
+              title: "৮. গোপনীয়তা ভঙ্গ (Violation of Secrecy - 49M)",
+              desc: "ভোটার গোপন কক্ষের ভিডিও করার চেষ্টা করলে বা হট্টগোল করলে।",
+              form: "17A Remarks",
+              content: [
+                "সতর্কতা: ভোটারকে প্রথমে সতর্ক করুন।",
+                "ভোট বাতিল: কথা না শুনলে তাঁকে ভোট দিতে দেবেন না।",
+                "রেকর্ড: ১৭এ রেজিস্টারে রিমার্কস কলামে লিখুন 'Not allowed to vote - Violation of Secrecy'। প্রিসাইডিং অফিসার সেখানে সই করবেন।"
+              ]
+            }
+          ];
+
+          const handlePdfClick = (e, formName) => {
+             e.stopPropagation();
+             alert(`${formName} এর PDF ডাউনলোড হচ্ছে... (Dummy Button)`);
+          };
+
+          return (
+            <div className="space-y-4">
+              <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl shadow-sm mb-4">
+                 <h2 className="text-lg font-bold text-orange-900 flex items-center gap-2"><Icons.Alert /> বিশেষ পরিস্থিতি (Special Cases)</h2>
+                 <p className="text-xs text-orange-800 mt-1">অপ্রত্যাশিত পরিস্থিতিতে আইনগত এবং পদ্ধতিগত খুঁটিনাটি।</p>
+              </div>
+
+              {specialCasesData.map(item => (
+                <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div 
+                    onClick={() => setOpenId(openId === item.id ? null : item.id)}
+                    className="w-full p-4 flex justify-between items-center text-left bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <div className="pr-4">
+                      <h3 className="font-bold text-slate-800 leading-tight">{item.title}</h3>
+                      <p className="text-[11px] font-medium text-slate-500 mt-1">{item.desc}</p>
+                    </div>
+                    <div className={`transition-transform duration-300 ${openId === item.id ? 'rotate-180' : ''}`}>
+                      <Icons.ChevronDown />
+                    </div>
+                  </div>
+                  
+                  {openId === item.id && (
+                    <div className="p-4 border-t border-slate-100 bg-white animate-in slide-in-from-top-2">
+                      <ul className="space-y-3">
+                         {item.content.map((point, idx) => {
+                            const [boldPart, restPart] = point.split(': ');
+                            return (
+                               <li key={idx} className="text-sm text-slate-700 flex gap-2 items-start">
+                                  <span className="text-orange-500 mt-1"><Icons.ChevronRight /></span>
+                                  <span className="leading-relaxed">
+                                     {restPart ? <><strong className="text-slate-800">{boldPart}:</strong> {restPart}</> : point}
+                                  </span>
+                               </li>
+                            );
+                         })}
+                      </ul>
+                      
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+                         <button 
+                           onClick={(e) => handlePdfClick(e, item.form)}
+                           className="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-blue-100 transition-colors"
+                         >
+                            <Icons.Download /> {item.form} PDF
+                         </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        // --- FORMS GUIDE ---
         function FormsGuide({ completedForms, toggleFormTask }) {
           const formsData = [
             { id: 'f_17a', name: 'Form 17A (Register of Voters)', purpose: 'ভোটারদের রেকর্ড।', guide: 'প্রতিটি ভোটারের ক্রমিক নং এবং সই/টিপছাপ নিতে হবে।', packing: "Statutory Cover (সবুজ) - তবে এটি 'Scrutiny'র জন্য আলাদা রাখা হয়।", color: 'green' },
@@ -713,7 +1471,7 @@
                   </li>
                   <li className="flex gap-3 items-start">
                     <span className="mt-0.5 text-amber-600"><Icons.Check /></span>
-                    <span className="leading-relaxed"><strong>বুকলেট নিয়ম:</strong> যদি স্টিচ বুকলেট দেওয়া হয়, তবে কোনো পাতা ছিঁড়বেন plain না। পাতা ফিলাপ না হলে সেখানে একটি আড়াআড়ি পেন দিয়ে দাগ (Cross Line) টেনে দিন।</span>
+                    <span className="leading-relaxed"><strong>বুকলেট নিয়ম:</strong> যদি স্টিচ বুকলেট দেওয়া হয়, তবে কোনো পাতা ছিঁড়বেন না। পাতা ফিলাপ না হলে সেখানে একটি আড়াআড়ি পেন দিয়ে দাগ (Cross Line) টেনে দিন।</span>
                   </li>
                   <li className="flex gap-3 items-start">
                     <span className="mt-0.5 text-red-600"><Icons.Alert /></span>
@@ -742,7 +1500,7 @@
           ];
 
           return (
-            <div className="space-y-4 mt-6">
+            <div className="space-y-4">
               <div className="bg-red-50 border border-red-200 p-5 rounded-2xl shadow-sm">
                 <h3 className="font-bold text-red-800 flex items-center gap-2 mb-3">
                   <Icons.Alert /> অত্যন্ত জরুরি নিয়মাবলি
